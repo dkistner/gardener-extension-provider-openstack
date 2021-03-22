@@ -31,6 +31,17 @@ func ValidateControlPlaneConfig(controlPlaneConfig *api.ControlPlaneConfig, fldP
 		allErrs = append(allErrs, field.Required(fldPath.Child("loadBalancerProvider"), "must provide the name of a load balancer provider"))
 	}
 
+	for i, class := range controlPlaneConfig.LoadBalancerClasses {
+		allErrs = append(allErrs, ValidateLoadBalancerClasses(class, fldPath.Child("loadBalancerClasses").Index(i))...)
+
+		// Do not allow that the user specify a vpn LoadBalancerClass in the controlplane config.
+		// It need to come from the CloudProfile.
+		if class.Purpose != nil && *class.Purpose == api.VPNLoadBalancerClass {
+			allErrs = append(allErrs, field.Invalid(fldPath, class.Purpose, fmt.Sprintf("not allowed to specify a LoadBalancerClass with purpose %q", api.VPNLoadBalancerClass)))
+		}
+
+	}
+
 	return allErrs
 }
 

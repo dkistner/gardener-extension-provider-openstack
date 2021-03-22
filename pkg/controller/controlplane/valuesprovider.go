@@ -494,9 +494,7 @@ func getConfigChartValues(
 	// Check if there is a dedicated vpn LoadBalancerClass in the CloudProfile and
 	// add its to the list of available LoadBalancerClasses.
 	if vpnLoadBalancerClass := lookupLoadBalancerClass(cloudProfileLbClasses, api.VPNLoadBalancerClass); vpnLoadBalancerClass != nil {
-		vpnLBClassCopy := vpnLoadBalancerClass.DeepCopy()
-		vpnLBClassCopy.Name = "gardener-vpn"
-		loadBalancerClasses = append(loadBalancerClasses, *vpnLBClassCopy)
+		loadBalancerClasses = append(loadBalancerClasses, *vpnLoadBalancerClass)
 	}
 
 	if loadBalancerClassValues := generateLoadBalancerClassValues(loadBalancerClasses, infraStatus); len(loadBalancerClassValues) > 0 {
