@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:generate mockgen -destination=mocks/client_mocks.go -package=mocks . Factory,FactoryFactory,Compute,DNS,Networking
+//go:generate mockgen -destination=mocks/client_mocks.go -package=mocks . Factory,FactoryFactory,Compute,DNS,Networking,Identity
 package client
 
 import (
@@ -21,6 +21,7 @@ import (
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/servergroups"
+	"github.com/gophercloud/gophercloud/openstack/identity/v3/applicationcredentials"
 )
 
 // OpenstackClientFactory implements a factory that can construct clients for Openstack services.
@@ -48,6 +49,11 @@ type NetworkingClient struct {
 	client *gophercloud.ServiceClient
 }
 
+// IdentityClient is a client for the Identity/Keystone service.
+type IdentityClient struct {
+	client *gophercloud.ServiceClient
+}
+
 // Option can be passed to Factory implementations to modify the produced clients.
 type Option func(opts gophercloud.EndpointOpts) gophercloud.EndpointOpts
 
@@ -57,6 +63,7 @@ type Factory interface {
 	Storage(options ...Option) (Storage, error)
 	DNS(options ...Option) (DNS, error)
 	Networking(options ...Option) (Networking, error)
+	Identity(options ...Option) (Identity, error)
 }
 
 // Storage describes the operations of a client interacting with OpenStack's ObjectStorage service.
@@ -84,6 +91,14 @@ type DNS interface {
 // Networking describes the operations of a client interacting with OpenStack's Networking service.
 type Networking interface {
 	GetExternalNetworkNames(ctx context.Context) ([]string, error)
+}
+
+type Identity interface {
+	GetApplicationCredential(ctx context.Context, parentUserID, applicationCredentialID string) (*applicationcredentials.ApplicationCredential, error)
+	ListApplicationCredentials(ctx context.Context, parentUserID string) ([]applicationcredentials.ApplicationCredential, error)
+	CreateApplicationCredential(ctx context.Context, parentUserID, clusterName string) (*applicationcredentials.ApplicationCredential, error)
+	DeleteApplicationCredential(ctx context.Context, parentUserID, applicationCredentialID string) error
+	LookupClientUserID() (string, error)
 }
 
 // FactoryFactory creates instances of Factory.
