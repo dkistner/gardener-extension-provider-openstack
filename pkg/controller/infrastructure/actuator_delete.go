@@ -21,6 +21,7 @@ import (
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack/helper"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/internal"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/internal/infrastructure"
+	appcredential "github.com/gardener/gardener-extension-provider-openstack/pkg/internal/managedappcredential"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,6 +38,25 @@ func (a *actuator) Delete(ctx context.Context, infra *extensionsv1alpha1.Infrast
 		return fmt.Errorf("could not create the Terraformer: %+v", err)
 	}
 
+	// need to known if application credentials are used
+	credentials, err := openstack.GetCredentials(ctx, a.Client(), infra.Spec.SecretRef, false)
+	if err != nil {
+		return err
+	}
+
+	managedAppCredential, err := appcredential.NewManagedApplicationCredential(a.Client(), a.logger, credentials, infra.Name)
+	if err != nil {
+		return err
+	}
+
+	if managedAppCredential.IsEnabled() {
+		newCredentials, err := managedAppCredential.Ensure(ctx)
+		if err != nil {
+			return err
+		}
+		credentials = newCredentials
+	}
+
 	// terraform pod from previous reconciliation might still be running, ensure they are gone before doing any operations
 	if err := tf.EnsureCleanedUp(ctx); err != nil {
 		return err
@@ -44,8 +64,10 @@ func (a *actuator) Delete(ctx context.Context, infra *extensionsv1alpha1.Infrast
 
 	// If the Terraform state is empty then we can exit early as we didn't create anything. Though, we clean up potentially
 	// created configmaps/secrets related to the Terraformer.
-	stateIsEmpty := tf.IsStateEmpty(ctx)
-	if stateIsEmpty {
+	if tf.IsStateEmpty(ctx) {
+		if err := managedAppCredential.Delete(ctx); err != nil {
+			return err
+		}
 		a.logger.Info("exiting early as infrastructure state is empty - nothing to do")
 		return tf.CleanupConfiguration(ctx)
 	}
@@ -60,15 +82,13 @@ func (a *actuator) Delete(ctx context.Context, infra *extensionsv1alpha1.Infrast
 		return err
 	}
 
-	// need to known if application credentials are used
-	credentials, err := openstack.GetCredentials(ctx, a.Client(), infra.Spec.SecretRef, false)
-	if err != nil {
+	stateInitializer := terraformer.StateConfigMapInitializerFunc(terraformer.CreateState)
+	if err := tf.
+		InitializeWith(ctx, terraformer.DefaultInitializer(a.Client(), terraformFiles.Main, terraformFiles.Variables, terraformFiles.TFVars, stateInitializer)).
+		SetEnvVars(internal.TerraformerEnvVars(infra.Spec.SecretRef, credentials)...).
+		Destroy(ctx); err != nil {
 		return err
 	}
 
-	stateInitializer := terraformer.StateConfigMapInitializerFunc(terraformer.CreateState)
-	return tf.
-		InitializeWith(ctx, terraformer.DefaultInitializer(a.Client(), terraformFiles.Main, terraformFiles.Variables, terraformFiles.TFVars, stateInitializer)).
-		SetEnvVars(internal.TerraformerEnvVars(infra.Spec.SecretRef, credentials)...).
-		Destroy(ctx)
+	return managedAppCredential.Delete(ctx)
 }

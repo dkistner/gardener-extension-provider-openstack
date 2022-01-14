@@ -21,13 +21,14 @@ import (
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack/helper"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/internal"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/internal/infrastructure"
+	appcredential "github.com/gardener/gardener-extension-provider-openstack/pkg/internal/managedappcredential"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
-	"github.com/go-logr/logr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
+	"github.com/go-logr/logr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (a *actuator) Reconcile(ctx context.Context, infra *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
@@ -50,6 +51,19 @@ func (a *actuator) reconcile(ctx context.Context, logger logr.Logger, infra *ext
 	credentials, err := openstack.GetCredentials(ctx, a.Client(), infra.Spec.SecretRef, false)
 	if err != nil {
 		return err
+	}
+
+	managedAppCredential, err := appcredential.NewManagedApplicationCredential(a.Client(), a.logger, credentials, infra.Name)
+	if err != nil {
+		return err
+	}
+
+	if managedAppCredential.IsEnabled() {
+		newCredentials, err := managedAppCredential.Ensure(ctx)
+		if err != nil {
+			return err
+		}
+		credentials = newCredentials
 	}
 
 	tf, err := internal.NewTerraformerWithAuth(logger, a.RESTConfig(), infrastructure.TerraformerPurpose, infra, credentials)

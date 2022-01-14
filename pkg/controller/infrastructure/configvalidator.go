@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack/helper"
+	appcredential "github.com/gardener/gardener-extension-provider-openstack/pkg/internal/managedappcredential"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
 	openstackclient "github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/client"
 
@@ -65,6 +66,21 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 		allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf("could not get Openstack credentials: %+v", err)))
 		return allErrs
 	}
+
+	managedAppCredential, err := appcredential.NewManagedApplicationCredential(c.Client(), c.logger, credentials, infra.Name)
+	if err != nil {
+		allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf("could not setup initialize application credential: %+v", err)))
+		return allErrs
+	}
+	if managedAppCredential.IsEnabled() {
+		newCredentials, err := managedAppCredential.Ensure(ctx)
+		if err != nil {
+			allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf("could not ensure managed application credential: %+v", err)))
+			return allErrs
+		}
+		credentials = newCredentials
+	}
+
 	clientFactory, err := c.clientFactoryFactory.NewFactory(credentials)
 	if err != nil {
 		allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf("could not create Openstack client factory: %+v", err)))
