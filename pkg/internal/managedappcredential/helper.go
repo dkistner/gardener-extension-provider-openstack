@@ -36,7 +36,7 @@ func (m *ManagedApplicationCredential) isApplicationCredentialExpired(secret *co
 		return true
 	}
 
-	if time.Now().UTC().After(creationTime.Add(24 * time.Hour)) {
+	if time.Now().UTC().After(creationTime.Add(m.config.Lifetime.Duration)) {
 		return true
 	}
 

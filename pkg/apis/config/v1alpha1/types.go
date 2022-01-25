@@ -35,9 +35,13 @@ type ControllerConfiguration struct {
 	ClientConnection *componentbaseconfigv1alpha1.ClientConnectionConfiguration `json:"clientConnection,omitempty"`
 	// ETCD is the etcd configuration.
 	ETCD ETCD `json:"etcd"`
-	// HealthCheckConfig is the config for the health check controller
+	// HealthCheckConfig is the config for the health check controller.
 	// +optional
 	HealthCheckConfig *healthcheckconfigv1alpha1.HealthCheckConfig `json:"healthCheckConfig,omitempty"`
+	// ApplicationCrednentialConfig contains the configuration for
+	// the managed application credential usage.
+	// +optional
+	ApplicationCrendentialConfig *ApplicationCrendentialConfig `json:"managedApplicationCredential,omitempty"`
 }
 
 // ETCD is an etcd configuration.
@@ -63,4 +67,18 @@ type ETCDBackup struct {
 	// Schedule is the etcd backup schedule.
 	// +optional
 	Schedule *string `json:"schedule,omitempty"`
+}
+
+// ApplicationCrednentialConfig contains the configuration for
+// the managed application credential usage.
+type ApplicationCrendentialConfig struct {
+	// Enabled indicate if managed application credential should be used.
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
+	// Lifetime define how long a managed application credential is valid.
+	// Once the creation time + lifetime of an application credential is expired
+	// it will be renewed with the Infrastructure resource reconcilation.
+	// Defaults to 24h.
+	// +optional
+	Lifetime *metav1.Duration `json:"lifetime,omitempty"`
 }

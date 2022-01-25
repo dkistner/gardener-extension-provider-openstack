@@ -17,6 +17,7 @@ package infrastructure
 import (
 	"context"
 
+	controllerconfig "github.com/gardener/gardener-extension-provider-openstack/pkg/apis/config"
 	api "github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack"
 	infrainternal "github.com/gardener/gardener-extension-provider-openstack/pkg/internal/infrastructure"
 
@@ -33,12 +34,15 @@ import (
 type actuator struct {
 	logger logr.Logger
 	common.RESTConfigContext
+
+	managedAppCredentialConfig *controllerconfig.ApplicationCrendentialConfig
 }
 
 // NewActuator creates a new Actuator that updates the status of the handled Infrastructure resources.
-func NewActuator() infrastructure.Actuator {
+func NewActuator(appCredentialConfig *controllerconfig.ApplicationCrendentialConfig) infrastructure.Actuator {
 	return &actuator{
-		logger: log.Log.WithName("infrastructure-actuator"),
+		logger:                     log.Log.WithName("infrastructure-actuator"),
+		managedAppCredentialConfig: appCredentialConfig,
 	}
 }
 

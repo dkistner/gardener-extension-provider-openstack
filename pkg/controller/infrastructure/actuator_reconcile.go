@@ -53,7 +53,7 @@ func (a *actuator) reconcile(ctx context.Context, logger logr.Logger, infra *ext
 		return err
 	}
 
-	managedAppCredential, err := appcredential.NewManagedApplicationCredential(a.Client(), a.logger, credentials, infra.Name)
+	managedAppCredential, err := appcredential.NewManagedApplicationCredential(a.Client(), a.managedAppCredentialConfig, credentials, a.logger, infra.Name)
 	if err != nil {
 		return err
 	}

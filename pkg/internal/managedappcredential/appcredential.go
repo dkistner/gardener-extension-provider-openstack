@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	controllerconfig "github.com/gardener/gardener-extension-provider-openstack/pkg/apis/config"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
 
 	"github.com/go-logr/logr"
@@ -28,7 +29,7 @@ import (
 // ManagedApplicationCredential represent the lifecycle of the usage for a
 // managed application credential.
 type ManagedApplicationCredential struct {
-	enabled       bool
+	config        *controllerconfig.ApplicationCrendentialConfig
 	k8sClient     client.Client
 	logger        logr.Logger
 	parent        *parent
@@ -37,10 +38,15 @@ type ManagedApplicationCredential struct {
 
 // NewManagedApplicationCredential returns a new ManagedApplicationCredential
 // to managed the lifecycle of a managed application credential.
-func NewManagedApplicationCredential(client client.Client, logger logr.Logger, credentials *openstack.Credentials, technicalName string) (*ManagedApplicationCredential, error) {
-	// TODO(dkistner) We need to check if managed applications credential are required.
-	if false {
-		return &ManagedApplicationCredential{enabled: false}, nil
+func NewManagedApplicationCredential(
+	client client.Client,
+	config *controllerconfig.ApplicationCrendentialConfig,
+	credentials *openstack.Credentials,
+	logger logr.Logger,
+	technicalName string,
+) (*ManagedApplicationCredential, error) {
+	if !config.Enabled {
+		return &ManagedApplicationCredential{config: config}, nil
 	}
 
 	parent, err := newParent(credentials)
@@ -49,7 +55,7 @@ func NewManagedApplicationCredential(client client.Client, logger logr.Logger, c
 	}
 
 	return &ManagedApplicationCredential{
-		enabled:       true,
+		config:        config,
 		k8sClient:     client,
 		logger:        logger,
 		parent:        parent,
@@ -59,7 +65,7 @@ func NewManagedApplicationCredential(client client.Client, logger logr.Logger, c
 
 // IsEnabled will determine whether managed application credentials should be used.
 func (m *ManagedApplicationCredential) IsEnabled() bool {
-	return true
+	return m.config.Enabled
 }
 
 // Ensure will ensure that a managed application credential exists.

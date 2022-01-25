@@ -88,9 +88,16 @@ func (c *Config) Options() config.ControllerConfiguration {
 	return cfg
 }
 
-// ApplyHealthCheckConfig applies the HealthCheckConfig to the config
+// ApplyHealthCheckConfig applies the HealthCheckConfig to the config.
 func (c *Config) ApplyHealthCheckConfig(config *healthcheckconfig.HealthCheckConfig) {
 	if c.Config.HealthCheckConfig != nil {
 		*config = *c.Config.HealthCheckConfig
+	}
+}
+
+// ApplyManagedApplicationCredentialConfig applies the ApplicationCrendentialConfig to the config.
+func (c *Config) ApplyManagedApplicationCredentialConfig(config *config.ApplicationCrendentialConfig) {
+	if c.Config.ApplicationCrendentialConfig != nil {
+		*config = *c.Config.ApplicationCrendentialConfig
 	}
 }

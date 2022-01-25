@@ -81,7 +81,71 @@ github.com/gardener/gardener/extensions/pkg/controller/healthcheck/config/v1alph
 </td>
 <td>
 <em>(Optional)</em>
-<p>HealthCheckConfig is the config for the health check controller</p>
+<p>HealthCheckConfig is the config for the health check controller.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>managedApplicationCredential</code></br>
+<em>
+<a href="#openstack.provider.extensions.config.gardener.cloud/v1alpha1.ApplicationCrendentialConfig">
+ApplicationCrendentialConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ApplicationCrednentialConfig contains the configuration for
+the managed application credential usage.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3 id="openstack.provider.extensions.config.gardener.cloud/v1alpha1.ApplicationCrendentialConfig">ApplicationCrendentialConfig
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#openstack.provider.extensions.config.gardener.cloud/v1alpha1.ControllerConfiguration">ControllerConfiguration</a>)
+</p>
+<p>
+<p>ApplicationCrednentialConfig contains the configuration for
+the managed application credential usage.</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enabled</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Enabled indicate if managed application credential should be used.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>lifetime</code></br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.15/#duration-v1-meta">
+Kubernetes meta/v1.Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Lifetime define how long a managed application credential is valid.
+Once the creation time + lifetime of an application credential is expired
+it will be renewed with the Infrastructure resource reconcilation.
+Defaults to 24h.</p>
 </td>
 </tr>
 </tbody>

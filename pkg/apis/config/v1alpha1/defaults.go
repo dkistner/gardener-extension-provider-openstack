@@ -15,9 +15,28 @@
 package v1alpha1
 
 import (
+	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func addDefaultingFuncs(scheme *runtime.Scheme) error {
 	return RegisterDefaults(scheme)
+}
+
+// SetDefaults_ControllerConfiguration sets defaults for the ControllerConfiguration.
+func SetDefaults_ControllerConfiguration(obj *ControllerConfiguration) {
+	if obj.ApplicationCrendentialConfig == nil {
+		obj.ApplicationCrendentialConfig = &ApplicationCrendentialConfig{}
+	}
+}
+
+// SetDefaults_ApplicationCrendentialConfig sets defaults for the ApplicationCrendentialConfig.
+func SetDefaults_ApplicationCrendentialConfig(obj *ApplicationCrendentialConfig) {
+	if obj.Lifetime == nil {
+		obj.Lifetime = &metav1.Duration{
+			Duration: time.Hour * 24,
+		}
+	}
 }

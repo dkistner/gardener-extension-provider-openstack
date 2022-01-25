@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/gardener/gardener-extension-provider-openstack/pkg/apis/config"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack/helper"
 	appcredential "github.com/gardener/gardener-extension-provider-openstack/pkg/internal/managedappcredential"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
@@ -35,15 +36,17 @@ import (
 // configValidator implements ConfigValidator for openstack infrastructure resources.
 type configValidator struct {
 	common.ClientContext
-	clientFactoryFactory openstackclient.FactoryFactory
-	logger               logr.Logger
+	clientFactoryFactory       openstackclient.FactoryFactory
+	managedAppCredentialConfig *config.ApplicationCrendentialConfig
+	logger                     logr.Logger
 }
 
 // NewConfigValidator creates a new ConfigValidator.
-func NewConfigValidator(clientFactoryFactory openstackclient.FactoryFactory, logger logr.Logger) infrastructure.ConfigValidator {
+func NewConfigValidator(clientFactoryFactory openstackclient.FactoryFactory, appCredentialConfig *config.ApplicationCrendentialConfig, logger logr.Logger) infrastructure.ConfigValidator {
 	return &configValidator{
-		clientFactoryFactory: clientFactoryFactory,
-		logger:               logger.WithName("openstack-infrastructure-config-validator"),
+		clientFactoryFactory:       clientFactoryFactory,
+		logger:                     logger.WithName("openstack-infrastructure-config-validator"),
+		managedAppCredentialConfig: appCredentialConfig,
 	}
 }
 
@@ -67,7 +70,7 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 		return allErrs
 	}
 
-	managedAppCredential, err := appcredential.NewManagedApplicationCredential(c.Client(), c.logger, credentials, infra.Name)
+	managedAppCredential, err := appcredential.NewManagedApplicationCredential(c.Client(), c.managedAppCredentialConfig, credentials, c.logger, infra.Name)
 	if err != nil {
 		allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf("could not setup initialize application credential: %+v", err)))
 		return allErrs

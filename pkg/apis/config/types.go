@@ -33,8 +33,11 @@ type ControllerConfiguration struct {
 	ClientConnection *componentbaseconfig.ClientConnectionConfiguration
 	// ETCD is the etcd configuration.
 	ETCD ETCD
-	// HealthCheckConfig is the config for the health check controller
+	// HealthCheckConfig is the config for the health check controller.
 	HealthCheckConfig *healthcheckconfig.HealthCheckConfig
+	// ApplicationCrednentialConfig contains the configuration for
+	// the managed application credential usage.
+	ApplicationCrendentialConfig *ApplicationCrendentialConfig
 }
 
 // ETCD is an etcd configuration.
@@ -57,4 +60,16 @@ type ETCDStorage struct {
 type ETCDBackup struct {
 	// Schedule is the etcd backup schedule.
 	Schedule *string
+}
+
+// ApplicationCrednentialConfig contains the configuration for
+// the managed application credential usage.
+type ApplicationCrendentialConfig struct {
+	// Enabled indicate if managed application credential should be used.
+	Enabled bool
+	// Lifetime define how long a managed application credential is valid.
+	// Once the creation time + lifetime of an application credential is expired
+	// it will be renewed with the Infrastructure resource reconcilation.
+	// Defaults to 24h.
+	Lifetime *metav1.Duration
 }

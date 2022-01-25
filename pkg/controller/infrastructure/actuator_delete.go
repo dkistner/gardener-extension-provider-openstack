@@ -44,7 +44,7 @@ func (a *actuator) Delete(ctx context.Context, infra *extensionsv1alpha1.Infrast
 		return err
 	}
 
-	managedAppCredential, err := appcredential.NewManagedApplicationCredential(a.Client(), a.logger, credentials, infra.Name)
+	managedAppCredential, err := appcredential.NewManagedApplicationCredential(a.Client(), a.managedAppCredentialConfig, credentials, a.logger, infra.Name)
 	if err != nil {
 		return err
 	}

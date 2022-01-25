@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	controllerconfig "github.com/gardener/gardener-extension-provider-openstack/pkg/apis/config"
 	apisopenstack "github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack"
 	. "github.com/gardener/gardener-extension-provider-openstack/pkg/controller/infrastructure"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
@@ -68,6 +69,7 @@ var _ = Describe("ConfigValidator", func() {
 		infra                         *extensionsv1alpha1.Infrastructure
 		secret                        *corev1.Secret
 		credentials                   *openstack.Credentials
+		appCredentialConfig           *controllerconfig.ApplicationCrendentialConfig
 	)
 
 	BeforeEach(func() {
@@ -81,7 +83,11 @@ var _ = Describe("ConfigValidator", func() {
 		ctx = context.TODO()
 		logger = log.Log.WithName("test")
 
-		cv = NewConfigValidator(openstackClientFactoryFactory, logger)
+		appCredentialConfig = &controllerconfig.ApplicationCrendentialConfig{
+			Enabled: false,
+		}
+
+		cv = NewConfigValidator(openstackClientFactoryFactory, appCredentialConfig, logger)
 		err := cv.(inject.Client).InjectClient(c)
 		Expect(err).NotTo(HaveOccurred())
 
