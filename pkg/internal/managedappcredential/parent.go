@@ -38,7 +38,6 @@ type parent struct {
 }
 
 func newParent(parentCredentials *openstack.Credentials) (*parent, error) {
-	fmt.Println("new parent", parentCredentials)
 	factory, err := openstackclient.NewOpenstackClientFromCredentials(parentCredentials)
 	if err != nil {
 		return nil, err

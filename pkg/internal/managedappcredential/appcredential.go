@@ -75,7 +75,7 @@ func (m *ManagedApplicationCredential) IsEnabled() bool {
 // Additionally it will also check if there are orphan managed application credentials
 // on the infrastructure exists and clean them up.
 func (m *ManagedApplicationCredential) Ensure(ctx context.Context) (*openstack.Credentials, error) {
-	appCredentialSecret, err := m.getApplicationCredentialSecret(ctx)
+	appCredentialSecret, err := getApplicationCredentialSecret(ctx, m.k8sClient, m.technicalName)
 	if err != nil {
 		return nil, err
 	}
@@ -97,12 +97,12 @@ func (m *ManagedApplicationCredential) Ensure(ctx context.Context) (*openstack.C
 		return m.createApplicationCredential(ctx)
 	}
 
-	return m.extractCredentials(appCredentialSecret), nil
+	return extractCredentials(appCredentialSecret), nil
 }
 
 // DeleteManagedApplicationCredential will delete the managed application credential.
 func (m *ManagedApplicationCredential) Delete(ctx context.Context) error {
-	appCredentialSecret, err := m.getApplicationCredentialSecret(ctx)
+	appCredentialSecret, err := getApplicationCredentialSecret(ctx, m.k8sClient, m.technicalName)
 	if err != nil {
 		return err
 	}
@@ -122,7 +122,7 @@ func (m *ManagedApplicationCredential) Delete(ctx context.Context) error {
 		return err
 	}
 
-	return m.deleteApplicationCredentialSecret(ctx)
+	return deleteApplicationCredentialSecret(ctx, m.k8sClient, m.technicalName)
 }
 
 func (m *ManagedApplicationCredential) createApplicationCredential(ctx context.Context) (*openstack.Credentials, error) {
@@ -131,12 +131,13 @@ func (m *ManagedApplicationCredential) createApplicationCredential(ctx context.C
 		return nil, err
 	}
 
-	appCredentialSecret, err := m.ensureApplicationCredentialSecret(ctx, m.parent, appCredential.ID, appCredential.Name, appCredential.Secret)
+	secretData := makeSecretData(m.parent, appCredential.ID, appCredential.Name, appCredential.Secret)
+	appCredentialSecret, err := ensureApplicationCredentialSecret(ctx, m.k8sClient, secretData, m.technicalName)
 	if err != nil {
 		return nil, err
 	}
 
-	return m.extractCredentials(appCredentialSecret), nil
+	return extractCredentials(appCredentialSecret), nil
 }
 
 func (m *ManagedApplicationCredential) handleParentHasChanged(ctx context.Context, appCredentialSecret *corev1.Secret) (*openstack.Credentials, error) {
@@ -170,10 +171,17 @@ func (m *ManagedApplicationCredential) handleParentHasChanged(ctx context.Contex
 	}
 
 	// Update the application credential secret with application credential from new parent user.
-	newAppCredentialSecret, err := m.ensureApplicationCredentialSecret(ctx, m.parent, newAppCredential.ID, newAppCredential.Name, newAppCredential.Secret)
+	secretData := makeSecretData(m.parent, newAppCredential.ID, newAppCredential.Name, newAppCredential.Secret)
+	newAppCredentialSecret, err := ensureApplicationCredentialSecret(ctx, m.k8sClient, secretData, m.technicalName)
 	if err != nil {
 		return nil, err
 	}
 
-	return m.extractCredentials(newAppCredentialSecret), nil
+	return extractCredentials(newAppCredentialSecret), nil
+}
+
+// GetSecretReference return a reference to the secret which contain information
+// to the in use managed application credential.
+func (m *ManagedApplicationCredential) GetSecretReference() *corev1.SecretReference {
+	return getSecretReference(m.technicalName)
 }

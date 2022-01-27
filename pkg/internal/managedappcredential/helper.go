@@ -15,7 +15,6 @@
 package managedappcredential
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
@@ -50,7 +49,6 @@ func (m *ManagedApplicationCredential) hasParentChanged(secret *corev1.Secret, p
 		return true
 	}
 
-	fmt.Println(string(configuredParentID), parentID)
 	if string(configuredParentID) != parentID {
 		return true
 	}
@@ -58,11 +56,11 @@ func (m *ManagedApplicationCredential) hasParentChanged(secret *corev1.Secret, p
 	return false
 }
 
-func (m *ManagedApplicationCredential) extractCredentials(appCredentialSecret *corev1.Secret) *openstack.Credentials {
+func extractCredentials(appCredentialSecret *corev1.Secret) *openstack.Credentials {
 	return &openstack.Credentials{
-		DomainName:                  m.parent.credentials.DomainName,
-		TenantName:                  m.parent.credentials.TenantName,
-		AuthURL:                     m.parent.credentials.AuthURL,
+		DomainName:                  string(appCredentialSecret.Data[openstack.DomainName]),
+		TenantName:                  string(appCredentialSecret.Data[openstack.TenantName]),
+		AuthURL:                     string(appCredentialSecret.Data[openstack.AuthURL]),
 		ApplicationCredentialID:     string(appCredentialSecret.Data[openstack.ApplicationCredentialID]),
 		ApplicationCredentialName:   string(appCredentialSecret.Data[openstack.ApplicationCredentialName]),
 		ApplicationCredentialSecret: string(appCredentialSecret.Data[openstack.ApplicationCredentialSecret]),
