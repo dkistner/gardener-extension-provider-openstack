@@ -49,12 +49,15 @@ func (a *actuator) Delete(ctx context.Context, infra *extensionsv1alpha1.Infrast
 		return err
 	}
 
+	credentialsSecretRef := infra.Spec.SecretRef
 	if managedAppCredential.IsEnabled() {
 		newCredentials, err := managedAppCredential.Ensure(ctx)
 		if err != nil {
 			return err
 		}
+
 		credentials = newCredentials
+		credentialsSecretRef = *managedAppCredential.GetSecretReference()
 	}
 
 	// terraform pod from previous reconciliation might still be running, ensure they are gone before doing any operations
@@ -85,7 +88,7 @@ func (a *actuator) Delete(ctx context.Context, infra *extensionsv1alpha1.Infrast
 	stateInitializer := terraformer.StateConfigMapInitializerFunc(terraformer.CreateState)
 	if err := tf.
 		InitializeWith(ctx, terraformer.DefaultInitializer(a.Client(), terraformFiles.Main, terraformFiles.Variables, terraformFiles.TFVars, stateInitializer)).
-		SetEnvVars(internal.TerraformerEnvVars(infra.Spec.SecretRef, credentials)...).
+		SetEnvVars(internal.TerraformerEnvVars(credentialsSecretRef, credentials)...).
 		Destroy(ctx); err != nil {
 		return err
 	}

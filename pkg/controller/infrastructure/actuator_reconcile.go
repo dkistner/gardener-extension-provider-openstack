@@ -53,6 +53,7 @@ func (a *actuator) reconcile(ctx context.Context, logger logr.Logger, infra *ext
 		return err
 	}
 
+	credentialsSecretRef := &infra.Spec.SecretRef
 	managedAppCredential, err := appcredential.NewManagedApplicationCredential(a.Client(), a.managedAppCredentialConfig, credentials, a.logger, infra.Name)
 	if err != nil {
 		return err
@@ -63,10 +64,12 @@ func (a *actuator) reconcile(ctx context.Context, logger logr.Logger, infra *ext
 		if err != nil {
 			return err
 		}
+
 		credentials = newCredentials
+		credentialsSecretRef = managedAppCredential.GetSecretReference()
 	}
 
-	tf, err := internal.NewTerraformerWithAuth(logger, a.RESTConfig(), infrastructure.TerraformerPurpose, infra, credentials)
+	tf, err := internal.NewTerraformerWithAuth(logger, a.RESTConfig(), infrastructure.TerraformerPurpose, infra, credentials, credentialsSecretRef)
 	if err != nil {
 		return err
 	}
