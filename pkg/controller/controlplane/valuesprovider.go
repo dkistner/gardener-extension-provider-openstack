@@ -22,6 +22,7 @@ import (
 
 	api "github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack/helper"
+	appcredential "github.com/gardener/gardener-extension-provider-openstack/pkg/internal/managedappcredential"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/utils"
 
@@ -353,10 +354,17 @@ func (vp *valuesProvider) GetConfigChartValues(
 		return nil, err
 	}
 
+	credentialsSecretRef := cp.Spec.SecretRef
+	if ref, err := appcredential.GetManagedApplicationCredentialSecretRef(ctx, vp.Client(), cp.Namespace); err != nil {
+		return nil, err
+	} else if ref != nil {
+		credentialsSecretRef = *ref
+	}
+
 	// Get credentials
-	credentials, err := openstack.GetCredentials(ctx, vp.Client(), cp.Spec.SecretRef, false)
+	credentials, err := openstack.GetCredentials(ctx, vp.Client(), credentialsSecretRef, false)
 	if err != nil {
-		return nil, fmt.Errorf("could not get service account from secret '%s/%s': %w", cp.Spec.SecretRef.Namespace, cp.Spec.SecretRef.Name, err)
+		return nil, fmt.Errorf("could not get service account from secret '%s/%s': %w", credentialsSecretRef.Namespace, credentialsSecretRef.Name, err)
 	}
 
 	return getConfigChartValues(cpConfig, infraStatus, cloudProfileConfig, cp, credentials, cluster)
