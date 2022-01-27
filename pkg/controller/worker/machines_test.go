@@ -70,7 +70,7 @@ var _ = Describe("Machines", func() {
 	})
 
 	Context("workerDelegate", func() {
-		workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(nil, nil, nil), nil, "", nil, nil, nil)
+		workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(nil, nil, nil), nil, "", nil, nil, nil, nil)
 
 		Describe("#MachineClassKind", func() {
 			It("should return the correct kind of the machine class", func() {
@@ -130,6 +130,7 @@ var _ = Describe("Machines", func() {
 				shootVersion           string
 				scheme                 *runtime.Scheme
 				decoder                runtime.Decoder
+				credentialSecretRef    *corev1.SecretReference
 				cloudProfileConfig     *api.CloudProfileConfig
 				cloudProfileConfigJSON []byte
 				clusterWithoutImages   *extensionscontroller.Cluster
@@ -248,10 +249,6 @@ var _ = Describe("Machines", func() {
 						Namespace: namespace,
 					},
 					Spec: extensionsv1alpha1.WorkerSpec{
-						SecretRef: corev1.SecretReference{
-							Name:      "secret",
-							Namespace: namespace,
-						},
 						Region: region,
 						InfrastructureProviderStatus: &runtime.RawExtension{
 							Raw: encode(&api.InfrastructureStatus{
@@ -322,7 +319,11 @@ var _ = Describe("Machines", func() {
 				workerPoolHash1, _ = worker.WorkerPoolHash(w.Spec.Pools[0], cluster)
 				workerPoolHash2, _ = worker.WorkerPoolHash(w.Spec.Pools[1], cluster)
 
-				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, clusterWithoutImages, nil)
+				credentialSecretRef = &corev1.SecretReference{
+					Name:      "secret",
+					Namespace: namespace,
+				}
+				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, clusterWithoutImages, nil, credentialSecretRef)
 			})
 
 			Describe("machine images", func() {
@@ -384,10 +385,10 @@ var _ = Describe("Machines", func() {
 						machineClassWithHashPool2Zone2 = fmt.Sprintf("%s-%s", machineClassNamePool2Zone2, workerPoolHash2)
 					)
 
-					addNameAndSecretToMachineClass(machineClassPool1Zone1, machineClassWithHashPool1Zone1, w.Spec.SecretRef)
-					addNameAndSecretToMachineClass(machineClassPool1Zone2, machineClassWithHashPool1Zone2, w.Spec.SecretRef)
-					addNameAndSecretToMachineClass(machineClassPool2Zone1, machineClassWithHashPool2Zone1, w.Spec.SecretRef)
-					addNameAndSecretToMachineClass(machineClassPool2Zone2, machineClassWithHashPool2Zone2, w.Spec.SecretRef)
+					addNameAndSecretToMachineClass(machineClassPool1Zone1, machineClassWithHashPool1Zone1, credentialSecretRef)
+					addNameAndSecretToMachineClass(machineClassPool1Zone2, machineClassWithHashPool1Zone2, credentialSecretRef)
+					addNameAndSecretToMachineClass(machineClassPool2Zone1, machineClassWithHashPool2Zone1, credentialSecretRef)
+					addNameAndSecretToMachineClass(machineClassPool2Zone2, machineClassWithHashPool2Zone2, credentialSecretRef)
 
 					machineClasses = map[string]interface{}{"machineClasses": []map[string]interface{}{
 						machineClassPool1Zone1,
@@ -442,7 +443,7 @@ var _ = Describe("Machines", func() {
 
 				It("should return the expected machine deployments for profile image types", func() {
 					setup(region, machineImage, "")
-					workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster, nil)
+					workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster, nil, credentialSecretRef)
 
 					// Test workerDelegate.DeployMachineClasses()
 					chartApplier.
@@ -496,7 +497,7 @@ var _ = Describe("Machines", func() {
 
 				It("should return the expected machine deployments for profile image types with id", func() {
 					setup(regionWithImages, "", machineImageID)
-					workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", workerWithRegion, clusterWithRegion, nil)
+					workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", workerWithRegion, clusterWithRegion, nil, credentialSecretRef)
 					clusterWithRegion.Shoot.Spec.Hibernation = &gardencorev1beta1.Hibernation{Enabled: pointer.BoolPtr(true)}
 
 					// Test workerDelegate.DeployMachineClasses()
@@ -604,7 +605,7 @@ var _ = Describe("Machines", func() {
 							},
 						}
 
-						workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", workerWithServerGroup, cluster, nil)
+						workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", workerWithServerGroup, cluster, nil, credentialSecretRef)
 
 						// Test workerDelegate.DeployMachineClasses()
 						workerPoolHash1, _ := worker.WorkerPoolHash(w.Spec.Pools[0], cluster, serverGroupID1)
@@ -633,10 +634,10 @@ var _ = Describe("Machines", func() {
 						machineClassWithHashPool1Zone2 := fmt.Sprintf("%s-%s", machineClassNamePool1Zone2, workerPoolHash1)
 						machineClassWithHashPool2Zone1 := fmt.Sprintf("%s-%s", machineClassNamePool2Zone1, workerPoolHash2)
 						machineClassWithHashPool2Zone2 := fmt.Sprintf("%s-%s", machineClassNamePool2Zone2, workerPoolHash2)
-						addNameAndSecretToMachineClass(machineClassPool1Zone1, machineClassWithHashPool1Zone1, w.Spec.SecretRef)
-						addNameAndSecretToMachineClass(machineClassPool1Zone2, machineClassWithHashPool1Zone2, w.Spec.SecretRef)
-						addNameAndSecretToMachineClass(machineClassPool2Zone1, machineClassWithHashPool2Zone1, w.Spec.SecretRef)
-						addNameAndSecretToMachineClass(machineClassPool2Zone2, machineClassWithHashPool2Zone2, w.Spec.SecretRef)
+						addNameAndSecretToMachineClass(machineClassPool1Zone1, machineClassWithHashPool1Zone1, credentialSecretRef)
+						addNameAndSecretToMachineClass(machineClassPool1Zone2, machineClassWithHashPool1Zone2, credentialSecretRef)
+						addNameAndSecretToMachineClass(machineClassPool2Zone1, machineClassWithHashPool2Zone1, credentialSecretRef)
+						addNameAndSecretToMachineClass(machineClassPool2Zone2, machineClassWithHashPool2Zone2, credentialSecretRef)
 						machineClasses := map[string]interface{}{"machineClasses": []map[string]interface{}{
 							machineClassPool1Zone1,
 							machineClassPool1Zone2,
@@ -676,7 +677,7 @@ var _ = Describe("Machines", func() {
 						},
 					}
 
-					workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", workerWithServerGroup, cluster, nil)
+					workerDelegate, _ := NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", workerWithServerGroup, cluster, nil, credentialSecretRef)
 					err := workerDelegate.DeployMachineClasses(context.TODO())
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(Equal(`server group is required for pool "pool-1", but no server group dependency found`))
@@ -685,7 +686,7 @@ var _ = Describe("Machines", func() {
 
 			It("should fail because the version is invalid", func() {
 				clusterWithoutImages.Shoot.Spec.Kubernetes.Version = "invalid"
-				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster, nil)
+				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster, nil, credentialSecretRef)
 
 				result, err := workerDelegate.GenerateMachineDeployments(context.TODO())
 				Expect(err).To(HaveOccurred())
@@ -695,7 +696,7 @@ var _ = Describe("Machines", func() {
 			It("should fail because the infrastructure status cannot be decoded", func() {
 				w.Spec.InfrastructureProviderStatus = &runtime.RawExtension{}
 
-				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster, nil)
+				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster, nil, credentialSecretRef)
 
 				result, err := workerDelegate.GenerateMachineDeployments(context.TODO())
 				Expect(err).To(HaveOccurred())
@@ -707,7 +708,7 @@ var _ = Describe("Machines", func() {
 					Raw: encode(&api.InfrastructureStatus{}),
 				}
 
-				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster, nil)
+				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster, nil, credentialSecretRef)
 
 				result, err := workerDelegate.GenerateMachineDeployments(context.TODO())
 				Expect(err).To(HaveOccurred())
@@ -717,7 +718,7 @@ var _ = Describe("Machines", func() {
 			It("should fail because the machine image for this cloud profile cannot be found", func() {
 				clusterWithoutImages.CloudProfile.Name = "another-cloud-profile"
 
-				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, clusterWithoutImages, nil)
+				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, clusterWithoutImages, nil, credentialSecretRef)
 
 				result, err := workerDelegate.GenerateMachineDeployments(context.TODO())
 				Expect(err).To(HaveOccurred())
@@ -738,7 +739,7 @@ var _ = Describe("Machines", func() {
 					NodeConditions:         testNodeConditions,
 				}
 
-				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster, nil)
+				workerDelegate, _ = NewWorkerDelegate(common.NewClientContext(c, scheme, decoder), chartApplier, "", w, cluster, nil, credentialSecretRef)
 
 				result, err := workerDelegate.GenerateMachineDeployments(context.TODO())
 				resultSettings := result[0].MachineConfiguration
@@ -785,7 +786,7 @@ func useDefaultMachineClassWith(def map[string]interface{}, add map[string]inter
 	return out
 }
 
-func addNameAndSecretToMachineClass(class map[string]interface{}, name string, credentialsSecretRef corev1.SecretReference) {
+func addNameAndSecretToMachineClass(class map[string]interface{}, name string, credentialsSecretRef *corev1.SecretReference) {
 	class["name"] = name
 	class["labels"] = map[string]string{
 		v1beta1constants.GardenerPurpose: genericworkeractuator.GardenPurposeMachineClass,

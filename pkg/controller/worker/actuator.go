@@ -21,6 +21,7 @@ import (
 	api "github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack/helper"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/imagevector"
+	appcredential "github.com/gardener/gardener-extension-provider-openstack/pkg/internal/managedappcredential"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/client"
 
@@ -32,6 +33,7 @@ import (
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	gardener "github.com/gardener/gardener/pkg/client/kubernetes"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -87,20 +89,26 @@ func (d *delegateFactory) WorkerDelegate(ctx context.Context, worker *extensions
 		return nil, err
 	}
 
-	openstackClient, err := client.NewOpenStackClientFromSecretRef(ctx, d.Client(), worker.Spec.SecretRef, &keyStoneURL)
+	credentialsSecretRef := worker.Spec.SecretRef
+	if ref, err := appcredential.GetManagedApplicationCredentialSecretRef(ctx, d.Client(), worker.Namespace); err != nil {
+		return nil, err
+	} else if ref != nil {
+		credentialsSecretRef = *ref
+	}
+
+	openstackClient, err := client.NewOpenStackClientFromSecretRef(ctx, d.Client(), credentialsSecretRef, &keyStoneURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create openstack client: %w", err)
 	}
 
 	return NewWorkerDelegate(
 		d.ClientContext,
-
 		seedChartApplier,
 		serverVersion.GitVersion,
-
 		worker,
 		cluster,
 		openstackClient,
+		&credentialsSecretRef,
 	)
 }
 
@@ -118,19 +126,19 @@ type workerDelegate struct {
 	machineDeployments worker.MachineDeployments
 	machineImages      []api.MachineImage
 
-	openstackClient client.Factory
+	openstackClient      client.Factory
+	credentialsSecretRef *corev1.SecretReference
 }
 
 // NewWorkerDelegate creates a new context for a worker reconciliation.
 func NewWorkerDelegate(
 	clientContext common.ClientContext,
-
 	seedChartApplier gardener.ChartApplier,
 	serverVersion string,
-
 	worker *extensionsv1alpha1.Worker,
 	cluster *extensionscontroller.Cluster,
 	openstackClient client.Factory,
+	credentialsSecretRef *corev1.SecretReference,
 ) (genericactuator.WorkerDelegate, error) {
 	config, err := helper.CloudProfileConfigFromCluster(cluster)
 	if err != nil {
@@ -143,9 +151,10 @@ func NewWorkerDelegate(
 		seedChartApplier: seedChartApplier,
 		serverVersion:    serverVersion,
 
-		cloudProfileConfig: config,
-		cluster:            cluster,
-		worker:             worker,
-		openstackClient:    openstackClient,
+		cloudProfileConfig:   config,
+		cluster:              cluster,
+		worker:               worker,
+		openstackClient:      openstackClient,
+		credentialsSecretRef: credentialsSecretRef,
 	}, nil
 }
