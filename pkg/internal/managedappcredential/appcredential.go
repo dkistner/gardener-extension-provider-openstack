@@ -126,7 +126,7 @@ func (m *ManagedApplicationCredential) Delete(ctx context.Context) error {
 }
 
 func (m *ManagedApplicationCredential) createApplicationCredential(ctx context.Context) (*openstack.Credentials, error) {
-	appCredential, err := m.parent.identityClient.CreateApplicationCredential(ctx, m.parent.id, m.technicalName)
+	appCredential, err := m.parent.identityClient.CreateApplicationCredential(ctx, m.parent.id, m.technicalName, calculateExirationTime(m.config))
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +153,7 @@ func (m *ManagedApplicationCredential) handleParentHasChanged(ctx context.Contex
 	}
 
 	// Create application credential owned by the new parent user.
-	newAppCredential, err := m.parent.identityClient.CreateApplicationCredential(ctx, m.parent.id, m.technicalName)
+	newAppCredential, err := m.parent.identityClient.CreateApplicationCredential(ctx, m.parent.id, m.technicalName, calculateExirationTime(m.config))
 	if err != nil {
 		return nil, err
 	}

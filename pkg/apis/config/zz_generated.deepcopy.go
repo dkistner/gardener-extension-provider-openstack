@@ -36,6 +36,11 @@ func (in *ApplicationCrendentialConfig) DeepCopyInto(out *ApplicationCrendential
 		*out = new(v1.Duration)
 		**out = **in
 	}
+	if in.ExpirationPeriod != nil {
+		in, out := &in.ExpirationPeriod, &out.ExpirationPeriod
+		*out = new(v1.Duration)
+		**out = **in
+	}
 	return
 }
 

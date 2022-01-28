@@ -381,18 +381,18 @@ func (m *MockIdentity) EXPECT() *MockIdentityMockRecorder {
 }
 
 // CreateApplicationCredential mocks base method.
-func (m *MockIdentity) CreateApplicationCredential(arg0 context.Context, arg1, arg2 string) (*applicationcredentials.ApplicationCredential, error) {
+func (m *MockIdentity) CreateApplicationCredential(arg0 context.Context, arg1, arg2, arg3 string) (*applicationcredentials.ApplicationCredential, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateApplicationCredential", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "CreateApplicationCredential", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*applicationcredentials.ApplicationCredential)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateApplicationCredential indicates an expected call of CreateApplicationCredential.
-func (mr *MockIdentityMockRecorder) CreateApplicationCredential(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockIdentityMockRecorder) CreateApplicationCredential(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateApplicationCredential", reflect.TypeOf((*MockIdentity)(nil).CreateApplicationCredential), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateApplicationCredential", reflect.TypeOf((*MockIdentity)(nil).CreateApplicationCredential), arg0, arg1, arg2, arg3)
 }
 
 // DeleteApplicationCredential mocks base method.

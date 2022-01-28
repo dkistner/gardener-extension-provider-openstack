@@ -72,4 +72,16 @@ type ApplicationCrendentialConfig struct {
 	// it will be renewed with the Infrastructure resource reconcilation.
 	// Defaults to 24h.
 	Lifetime *metav1.Duration
+	// ExpirationPeriod is a duration to calculate the expiration time
+	// of a managed application credential on the Openstack layer.
+	// The expiration time will be calculated in the following way:
+	//
+	// expiration time = creation time + life time + expiration period
+	//
+	// This is a security measure to ensure that managed appplication credentials
+	// get deactivated even if the owning user of the application credential
+	// is not available to the openstack-extension anymore and therefore
+	// cannot be cleaned up by the openstack-extension on its own.
+	// Defaults to 48h.
+	ExpirationPeriod *metav1.Duration
 }

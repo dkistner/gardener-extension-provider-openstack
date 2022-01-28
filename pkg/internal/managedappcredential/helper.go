@@ -17,6 +17,7 @@ package managedappcredential
 import (
 	"time"
 
+	"github.com/gardener/gardener-extension-provider-openstack/pkg/apis/config"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
 
 	corev1 "k8s.io/api/core/v1"
@@ -29,7 +30,7 @@ func (m *ManagedApplicationCredential) isApplicationCredentialExpired(secret *co
 		return true
 	}
 
-	creationTime, err := time.Parse(time.RFC1123, string(creationTimeRaw))
+	creationTime, err := time.Parse(time.RFC3339, string(creationTimeRaw))
 	if err != nil {
 		m.logger.Info("could not determine if the in use managed application credential is expired, managed application credential will be renewed")
 		return true
@@ -65,4 +66,8 @@ func extractCredentials(appCredentialSecret *corev1.Secret) *openstack.Credentia
 		ApplicationCredentialName:   string(appCredentialSecret.Data[openstack.ApplicationCredentialName]),
 		ApplicationCredentialSecret: string(appCredentialSecret.Data[openstack.ApplicationCredentialSecret]),
 	}
+}
+
+func calculateExirationTime(cfg *config.ApplicationCrendentialConfig) string {
+	return time.Now().UTC().Add(cfg.Lifetime.Duration + cfg.ExpirationPeriod.Duration).Format(time.RFC3339)
 }

@@ -148,6 +148,28 @@ it will be renewed with the Infrastructure resource reconcilation.
 Defaults to 24h.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>expirationPeriod</code></br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.15/#duration-v1-meta">
+Kubernetes meta/v1.Duration
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ExpirationPeriod is a duration to calculate the expiration time
+of a managed application credential on the Openstack layer.
+The expiration time will be calculated in the following way:</p>
+<p>expiration time = creation time + life time + expiration period</p>
+<p>This is a security measure to ensure that managed appplication credentials
+get deactivated even if the owning user of the application credential
+is not available to the openstack-extension anymore and therefore
+cannot be cleaned up by the openstack-extension on its own.
+Defaults to 48h.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <h3 id="openstack.provider.extensions.config.gardener.cloud/v1alpha1.ETCD">ETCD

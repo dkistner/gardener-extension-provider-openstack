@@ -98,6 +98,7 @@ func RegisterConversions(s *runtime.Scheme) error {
 func autoConvert_v1alpha1_ApplicationCrendentialConfig_To_config_ApplicationCrendentialConfig(in *ApplicationCrendentialConfig, out *config.ApplicationCrendentialConfig, s conversion.Scope) error {
 	out.Enabled = in.Enabled
 	out.Lifetime = (*v1.Duration)(unsafe.Pointer(in.Lifetime))
+	out.ExpirationPeriod = (*v1.Duration)(unsafe.Pointer(in.ExpirationPeriod))
 	return nil
 }
 
@@ -109,6 +110,7 @@ func Convert_v1alpha1_ApplicationCrendentialConfig_To_config_ApplicationCrendent
 func autoConvert_config_ApplicationCrendentialConfig_To_v1alpha1_ApplicationCrendentialConfig(in *config.ApplicationCrendentialConfig, out *ApplicationCrendentialConfig, s conversion.Scope) error {
 	out.Enabled = in.Enabled
 	out.Lifetime = (*v1.Duration)(unsafe.Pointer(in.Lifetime))
+	out.ExpirationPeriod = (*v1.Duration)(unsafe.Pointer(in.ExpirationPeriod))
 	return nil
 }
 

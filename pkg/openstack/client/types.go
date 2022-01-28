@@ -96,7 +96,7 @@ type Networking interface {
 type Identity interface {
 	GetApplicationCredential(ctx context.Context, parentUserID, applicationCredentialID string) (*applicationcredentials.ApplicationCredential, error)
 	ListApplicationCredentials(ctx context.Context, parentUserID string) ([]applicationcredentials.ApplicationCredential, error)
-	CreateApplicationCredential(ctx context.Context, parentUserID, clusterName string) (*applicationcredentials.ApplicationCredential, error)
+	CreateApplicationCredential(ctx context.Context, parentUserID, clusterName, expirationTime string) (*applicationcredentials.ApplicationCredential, error)
 	DeleteApplicationCredential(ctx context.Context, parentUserID, applicationCredentialID string) error
 	LookupClientUserID() (string, error)
 }

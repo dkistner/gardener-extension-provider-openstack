@@ -51,6 +51,7 @@ var _ = Describe("Defaults", func() {
 			SetDefaults_ApplicationCrendentialConfig(obj)
 
 			Expect(*obj.Lifetime).To(Equal(metav1.Duration{Duration: time.Hour * 24}))
+			Expect(*obj.ExpirationPeriod).To(Equal(metav1.Duration{Duration: time.Hour * 48}))
 		})
 	})
 

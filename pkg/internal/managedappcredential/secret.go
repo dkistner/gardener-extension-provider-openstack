@@ -54,7 +54,7 @@ func makeSecretData(parent *parent, id, name, secret string) map[string][]byte {
 		openstack.ApplicationCredentialID:                []byte(id),
 		openstack.ApplicationCredentialName:              []byte(name),
 		openstack.ApplicationCredentialSecret:            []byte(secret),
-		applicationCredentialSecretCreationTime:          []byte(time.Now().UTC().Format(time.RFC1123)),
+		applicationCredentialSecretCreationTime:          []byte(time.Now().UTC().Format(time.RFC3339)),
 		applicationCredentialSecretParentID:              []byte(parent.id),
 		applicationCredentialSecretParentSecret:          []byte(parent.secret),
 		applicationCredentialSecretParentName:            []byte(parent.name),

@@ -39,4 +39,10 @@ func SetDefaults_ApplicationCrendentialConfig(obj *ApplicationCrendentialConfig)
 			Duration: time.Hour * 24,
 		}
 	}
+
+	if obj.ExpirationPeriod == nil {
+		obj.ExpirationPeriod = &metav1.Duration{
+			Duration: time.Hour * 48,
+		}
+	}
 }

@@ -41,7 +41,7 @@ func (c *IdentityClient) ListApplicationCredentials(ctx context.Context, parentU
 
 // CreateApplicationCredential creates an application credential belonging to
 // a given parent user/application credential with a randomized name based on a given cluster name.
-func (c *IdentityClient) CreateApplicationCredential(ctx context.Context, parentUserID, clusterName string) (*applicationcredentials.ApplicationCredential, error) {
+func (c *IdentityClient) CreateApplicationCredential(ctx context.Context, parentUserID, clusterName, expirationTime string) (*applicationcredentials.ApplicationCredential, error) {
 	appCredentialName, err := generateAppCredentialsName(clusterName)
 	if err != nil {
 		return nil, err
@@ -51,6 +51,7 @@ func (c *IdentityClient) CreateApplicationCredential(ctx context.Context, parent
 		Name:         appCredentialName,
 		Description:  fmt.Sprintf("Gardener managed application credential, shoot=%s", clusterName),
 		Unrestricted: false,
+		ExpiresAt:    expirationTime,
 	}).Extract()
 }
 
