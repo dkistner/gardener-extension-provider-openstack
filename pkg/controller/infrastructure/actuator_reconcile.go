@@ -53,23 +53,34 @@ func (a *actuator) reconcile(ctx context.Context, logger logr.Logger, infra *ext
 		return err
 	}
 
-	credentialsSecretRef := &infra.Spec.SecretRef
-	managedAppCredential, err := appcredential.NewManagedApplicationCredential(a.Client(), a.managedAppCredentialConfig, credentials, a.logger, infra.Name)
+	managedAppCredential, err := appcredential.NewManagedApplicationCredential(ctx, a.Client(), infra.Name, a.logger)
 	if err != nil {
 		return err
 	}
+	managedAppCredential.InjectConfig(a.managedAppCredentialConfig)
 
+	credentialsSecretRef := infra.Spec.SecretRef
 	if managedAppCredential.IsEnabled() {
-		newCredentials, err := managedAppCredential.Ensure(ctx)
-		if err != nil {
+		managedAppCredential.InjectParentUserCredentials(credentials)
+
+		if err := managedAppCredential.Ensure(ctx); err != nil {
 			return err
 		}
 
-		credentials = newCredentials
+		if err := managedAppCredential.CleanupOrphans(ctx); err != nil {
+			return err
+		}
+
 		credentialsSecretRef = managedAppCredential.GetSecretReference()
+		credentials, err = managedAppCredential.GetCredentials()
+		if err != nil {
+			return err
+		}
+	} else {
+		managedAppCredential.DeleteIfExists(ctx)
 	}
 
-	tf, err := internal.NewTerraformerWithAuth(logger, a.RESTConfig(), infrastructure.TerraformerPurpose, infra, credentials, credentialsSecretRef)
+	tf, err := internal.NewTerraformerWithAuth(logger, a.RESTConfig(), infrastructure.TerraformerPurpose, infra, credentials, &credentialsSecretRef)
 	if err != nil {
 		return err
 	}

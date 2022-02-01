@@ -70,18 +70,26 @@ func (c *configValidator) Validate(ctx context.Context, infra *extensionsv1alpha
 		return allErrs
 	}
 
-	managedAppCredential, err := appcredential.NewManagedApplicationCredential(c.Client(), c.managedAppCredentialConfig, credentials, c.logger, infra.Name)
+	managedAppCredential, err := appcredential.NewManagedApplicationCredential(ctx, c.Client(), infra.Name, c.logger)
 	if err != nil {
 		allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf("could not setup initialize application credential: %+v", err)))
 		return allErrs
 	}
+
+	managedAppCredential.InjectConfig(c.managedAppCredentialConfig)
 	if managedAppCredential.IsEnabled() {
-		newCredentials, err := managedAppCredential.Ensure(ctx)
-		if err != nil {
+		managedAppCredential.InjectParentUserCredentials(credentials)
+
+		if err := managedAppCredential.Ensure(ctx); err != nil {
 			allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf("could not ensure managed application credential: %+v", err)))
 			return allErrs
 		}
-		credentials = newCredentials
+
+		credentials, err = managedAppCredential.GetCredentials()
+		if err != nil {
+			allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf("could not get credentials of managed application credential: %+v", err)))
+			return allErrs
+		}
 	}
 
 	clientFactory, err := c.clientFactoryFactory.NewFactory(credentials)

@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/apis/config"
-	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -55,17 +54,6 @@ func (m *ManagedApplicationCredential) hasParentChanged(secret *corev1.Secret, p
 	}
 
 	return false
-}
-
-func extractCredentials(appCredentialSecret *corev1.Secret) *openstack.Credentials {
-	return &openstack.Credentials{
-		DomainName:                  string(appCredentialSecret.Data[openstack.DomainName]),
-		TenantName:                  string(appCredentialSecret.Data[openstack.TenantName]),
-		AuthURL:                     string(appCredentialSecret.Data[openstack.AuthURL]),
-		ApplicationCredentialID:     string(appCredentialSecret.Data[openstack.ApplicationCredentialID]),
-		ApplicationCredentialName:   string(appCredentialSecret.Data[openstack.ApplicationCredentialName]),
-		ApplicationCredentialSecret: string(appCredentialSecret.Data[openstack.ApplicationCredentialSecret]),
-	}
 }
 
 func calculateExirationTime(cfg *config.ApplicationCrendentialConfig) string {

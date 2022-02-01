@@ -79,11 +79,19 @@ func newParent(parentCredentials *openstack.Credentials) (*parent, error) {
 	return parent, nil
 }
 
-func newParentFromSecret(secret *corev1.Secret, credentials *openstack.Credentials) (*parent, error) {
-	parentCredential := &openstack.Credentials{
-		DomainName: credentials.DomainName,
-		TenantName: credentials.TenantName,
-		AuthURL:    credentials.AuthURL,
+func newParentFromSecret(secret *corev1.Secret) (*parent, error) {
+	parentCredential := &openstack.Credentials{}
+
+	if data, ok := secret.Data[openstack.TenantName]; ok {
+		parentCredential.TenantName = string(data)
+	}
+
+	if data, ok := secret.Data[openstack.DomainName]; ok {
+		parentCredential.DomainName = string(data)
+	}
+
+	if data, ok := secret.Data[openstack.AuthURL]; ok {
+		parentCredential.AuthURL = string(data)
 	}
 
 	parentSecretRaw, ok := secret.Data[applicationCredentialSecretParentSecret]
@@ -118,8 +126,6 @@ func newParentFromSecret(secret *corev1.Secret, credentials *openstack.Credentia
 		parentCredential.Username = string(parentNameRaw)
 		parentCredential.Password = string(parentSecretRaw)
 	}
-
-	fmt.Println(parentCredential)
 
 	return newParent(parentCredential)
 }

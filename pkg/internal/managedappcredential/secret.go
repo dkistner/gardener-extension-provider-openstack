@@ -115,26 +115,3 @@ func deleteApplicationCredentialSecret(ctx context.Context, k8sClient client.Cli
 
 	return nil
 }
-
-// GetManagedApplicationCredentialSecretRef return a reference to the secret which
-// contain information to the in use managed application credential.
-// The secretReference will be nil if no in use managed exists.
-func GetManagedApplicationCredentialSecretRef(ctx context.Context, k8sClient client.Client, namespace string) (*corev1.SecretReference, error) {
-	secret, err := getApplicationCredentialSecret(ctx, k8sClient, namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	if secret == nil {
-		return nil, nil
-	}
-
-	return getSecretReference(namespace), nil
-}
-
-func getSecretReference(namespace string) *corev1.SecretReference {
-	return &corev1.SecretReference{
-		Name:      applicationCredentialSecretName,
-		Namespace: namespace,
-	}
-}

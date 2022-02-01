@@ -44,20 +44,28 @@ func (a *actuator) Delete(ctx context.Context, infra *extensionsv1alpha1.Infrast
 		return err
 	}
 
-	managedAppCredential, err := appcredential.NewManagedApplicationCredential(a.Client(), a.managedAppCredentialConfig, credentials, a.logger, infra.Name)
+	managedAppCredential, err := appcredential.NewManagedApplicationCredential(ctx, a.Client(), infra.Name, a.logger)
 	if err != nil {
 		return err
 	}
+	managedAppCredential.InjectConfig(a.managedAppCredentialConfig)
 
 	credentialsSecretRef := infra.Spec.SecretRef
 	if managedAppCredential.IsEnabled() {
-		newCredentials, err := managedAppCredential.Ensure(ctx)
-		if err != nil {
+		managedAppCredential.InjectParentUserCredentials(credentials)
+		if err := managedAppCredential.Ensure(ctx); err != nil {
 			return err
 		}
 
-		credentials = newCredentials
-		credentialsSecretRef = *managedAppCredential.GetSecretReference()
+		if err := managedAppCredential.CleanupOrphans(ctx); err != nil {
+			return err
+		}
+
+		credentialsSecretRef = managedAppCredential.GetSecretReference()
+		credentials, err = managedAppCredential.GetCredentials()
+		if err != nil {
+			return err
+		}
 	}
 
 	// terraform pod from previous reconciliation might still be running, ensure they are gone before doing any operations
@@ -68,7 +76,7 @@ func (a *actuator) Delete(ctx context.Context, infra *extensionsv1alpha1.Infrast
 	// If the Terraform state is empty then we can exit early as we didn't create anything. Though, we clean up potentially
 	// created configmaps/secrets related to the Terraformer.
 	if tf.IsStateEmpty(ctx) {
-		if err := managedAppCredential.Delete(ctx); err != nil {
+		if err := managedAppCredential.DeleteIfExists(ctx); err != nil {
 			return err
 		}
 		a.logger.Info("exiting early as infrastructure state is empty - nothing to do")
@@ -93,5 +101,5 @@ func (a *actuator) Delete(ctx context.Context, infra *extensionsv1alpha1.Infrast
 		return err
 	}
 
-	return managedAppCredential.Delete(ctx)
+	return managedAppCredential.DeleteIfExists(ctx)
 }

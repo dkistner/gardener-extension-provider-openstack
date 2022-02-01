@@ -354,11 +354,14 @@ func (vp *valuesProvider) GetConfigChartValues(
 		return nil, err
 	}
 
-	credentialsSecretRef := cp.Spec.SecretRef
-	if ref, err := appcredential.GetManagedApplicationCredentialSecretRef(ctx, vp.Client(), cp.Namespace); err != nil {
+	managedAppCredential, err := appcredential.NewManagedApplicationCredential(ctx, vp.Client(), cp.Namespace, vp.logger)
+	if err != nil {
 		return nil, err
-	} else if ref != nil {
-		credentialsSecretRef = *ref
+	}
+
+	credentialsSecretRef := cp.Spec.SecretRef
+	if managedAppCredential.IsAvailable() {
+		credentialsSecretRef = managedAppCredential.GetSecretReference()
 	}
 
 	// Get credentials
