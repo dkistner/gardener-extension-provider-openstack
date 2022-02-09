@@ -58,11 +58,10 @@ func (a *actuator) reconcile(ctx context.Context, logger logr.Logger, infra *ext
 		return err
 	}
 	managedAppCredential.InjectConfig(a.managedAppCredentialConfig)
+	managedAppCredential.InjectParentUserCredentials(credentials)
 
 	credentialsSecretRef := infra.Spec.SecretRef
 	if managedAppCredential.IsEnabled() {
-		managedAppCredential.InjectParentUserCredentials(credentials)
-
 		if err := managedAppCredential.Ensure(ctx); err != nil {
 			return err
 		}

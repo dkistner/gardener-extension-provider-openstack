@@ -16,7 +16,6 @@ package managedappcredential
 
 import (
 	"context"
-	"strconv"
 	"time"
 
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
@@ -51,14 +50,13 @@ func getApplicationCredentialSecret(ctx context.Context, k8sClient client.Client
 
 func makeSecretData(parent *parent, id, name, secret string) map[string][]byte {
 	var data = map[string][]byte{
-		openstack.ApplicationCredentialID:                []byte(id),
-		openstack.ApplicationCredentialName:              []byte(name),
-		openstack.ApplicationCredentialSecret:            []byte(secret),
-		applicationCredentialSecretCreationTime:          []byte(time.Now().UTC().Format(time.RFC3339)),
-		applicationCredentialSecretParentID:              []byte(parent.id),
-		applicationCredentialSecretParentSecret:          []byte(parent.secret),
-		applicationCredentialSecretParentName:            []byte(parent.name),
-		applicationCredentialSecretParentIsAppCredential: []byte(strconv.FormatBool(parent.isApplicationCredential)),
+		openstack.ApplicationCredentialID:       []byte(id),
+		openstack.ApplicationCredentialName:     []byte(name),
+		openstack.ApplicationCredentialSecret:   []byte(secret),
+		applicationCredentialSecretCreationTime: []byte(time.Now().UTC().Format(time.RFC3339)),
+		applicationCredentialSecretParentID:     []byte(parent.id),
+		applicationCredentialSecretParentSecret: []byte(parent.secret),
+		applicationCredentialSecretParentName:   []byte(parent.name),
 	}
 
 	if parent.credentials.TenantName != "" {

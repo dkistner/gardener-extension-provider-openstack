@@ -49,10 +49,10 @@ func (a *actuator) Delete(ctx context.Context, infra *extensionsv1alpha1.Infrast
 		return err
 	}
 	managedAppCredential.InjectConfig(a.managedAppCredentialConfig)
+	managedAppCredential.InjectParentUserCredentials(credentials)
 
 	credentialsSecretRef := infra.Spec.SecretRef
 	if managedAppCredential.IsEnabled() {
-		managedAppCredential.InjectParentUserCredentials(credentials)
 		if err := managedAppCredential.Ensure(ctx); err != nil {
 			return err
 		}

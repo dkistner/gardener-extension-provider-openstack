@@ -59,10 +59,15 @@ func NewManagedApplicationCredential(ctx context.Context, k8sClient client.Clien
 	return &new, nil
 }
 
-// InjectParentUserCredentials injects the credentials of the parent user for
-// managed application credentials.
+// InjectParentUserCredentials injects the credentials of the parent user
+// for managed application credentials. In case the parent user itself is
+// an application credential then its credential will not injected.
 func (m *ManagedApplicationCredential) InjectParentUserCredentials(credentials *openstack.Credentials) error {
-	parent, err := newParent(credentials)
+	if credentials.ApplicationCredentialID != "" || credentials.ApplicationCredentialName != "" {
+		return nil
+	}
+
+	parent, err := newParentFromCredentials(credentials)
 	if err != nil {
 		return err
 	}
@@ -71,22 +76,32 @@ func (m *ManagedApplicationCredential) InjectParentUserCredentials(credentials *
 	return nil
 }
 
-// InjectConfig injects the configuration for managed application credentials.
+// InjectConfig injects the managed application credentials configuration.
 func (m *ManagedApplicationCredential) InjectConfig(config *controllerconfig.ApplicationCrendentialConfig) {
 	m.config = config
 }
 
-// IsEnabled check wheather managed appplication credentials should be used.
+// IsEnabled check whether managed appplication credentials can be used.
 func (m *ManagedApplicationCredential) IsEnabled() bool {
-	if m.config != nil && m.config.Enabled {
-		return true
+	if m.config == nil {
+		return false
 	}
-	return false
+
+	if !m.config.Enabled {
+		return false
+	}
+
+	if m.parent == nil {
+		return false
+	}
+
+	return true
 }
 
-// IsAvailable checks if managed application credential information are available.
-// Internally it will check if the secret for the managed application credential
-// is known.
+// IsAvailable checks if infomation about an managed application credential
+// are known and determine this way if the application credential can be used.
+// Internally this check is based on the existence of a secret which hold
+// information about the in use managed application crededential.
 func (m *ManagedApplicationCredential) IsAvailable() bool {
 	if m.secret != nil {
 		return true
@@ -96,19 +111,15 @@ func (m *ManagedApplicationCredential) IsAvailable() bool {
 
 // Ensure will ensure that a managed application credential exists.
 // Beside ensuring the existence it will also check if a renewal is required.
-// This could be neccesarry in case the application credential is expired
+// This could be necessary in case the application credential is expired
 // or the parent user has been changed.
 func (m *ManagedApplicationCredential) Ensure(ctx context.Context) error {
-	if m.config == nil {
-		return fmt.Errorf("cannot ensure managed application credential as config is not injected")
-	}
-
-	if m.parent == nil {
-		return fmt.Errorf("cannot ensure managed application credential as parent user information are not injected")
+	if !m.IsEnabled() {
+		return fmt.Errorf("cannot ensure managed application credential as it not enabled")
 	}
 
 	if !m.IsAvailable() {
-		return m.createApplicationCredential(ctx)
+		return m.createNewApplicationCredential(ctx)
 	}
 
 	if m.hasParentChanged(m.secret, m.parent.id) {
@@ -116,13 +127,13 @@ func (m *ManagedApplicationCredential) Ensure(ctx context.Context) error {
 	}
 
 	if m.isApplicationCredentialExpired(m.secret) {
-		return m.createApplicationCredential(ctx)
+		return m.createNewApplicationCredential(ctx)
 	}
 
 	return nil
 }
 
-func (m *ManagedApplicationCredential) createApplicationCredential(ctx context.Context) error {
+func (m *ManagedApplicationCredential) createNewApplicationCredential(ctx context.Context) error {
 	appCredential, err := m.parent.identityClient.CreateApplicationCredential(ctx, m.parent.id, m.technicalName, calculateExirationTime(m.config))
 	if err != nil {
 		return err
@@ -184,19 +195,22 @@ func (m *ManagedApplicationCredential) handleParentHasChanged(ctx context.Contex
 
 // DeleteIfExists delete the in use managed application credential
 // and its secret in the controlplane namespace if it exists.
+
+// DeleteIfExists delete the in use managed application credential if one exists.
+// In addition it delete the corresponding secret resource in the control plane
+// namespace which hold information about the application credential.
 func (m *ManagedApplicationCredential) DeleteIfExists(ctx context.Context) error {
 	if !m.IsAvailable() {
 		return nil
 	}
 
-	parent := m.parent
-	if parent == nil {
-		newParent, err := newParentFromSecret(m.secret)
+	if m.parent == nil {
+		parent, err := newParentFromSecret(m.secret)
 		if err != nil {
-			m.logger.Info("cannot delete managed application credential as the known parent user information are invalid")
+			m.logger.Info("cannot delete managed application credential as information about parent user are unknown")
 			return deleteApplicationCredentialSecret(ctx, m.k8sClient, m.technicalName)
 		}
-		parent = newParent
+		m.parent = parent
 	}
 
 	appCredentialID, ok := m.secret.Data[openstack.ApplicationCredentialID]
@@ -205,7 +219,7 @@ func (m *ManagedApplicationCredential) DeleteIfExists(ctx context.Context) error
 		return deleteApplicationCredentialSecret(ctx, m.k8sClient, m.technicalName)
 	}
 
-	if err := parent.identityClient.DeleteApplicationCredential(ctx, m.parent.id, string(appCredentialID)); err != nil {
+	if err := m.parent.identityClient.DeleteApplicationCredential(ctx, m.parent.id, string(appCredentialID)); err != nil {
 		return err
 	}
 
@@ -215,12 +229,16 @@ func (m *ManagedApplicationCredential) DeleteIfExists(ctx context.Context) error
 // CleanupOrphans will remove orphan managed application credentials
 // on the Openstack infrastructure layer.
 func (m *ManagedApplicationCredential) CleanupOrphans(ctx context.Context) error {
-	if m.parent == nil {
-		return fmt.Errorf("cannot cleanup managed application credential as parent user information are not injected")
+	if !m.IsAvailable() {
+		return fmt.Errorf("cannot cleanup orphan managed application credential as no information about the in use application credential are available")
 	}
 
-	if !m.IsAvailable() {
-		return fmt.Errorf("cannot cleanup managed application credential as in use application credential is unknown")
+	if m.parent == nil {
+		parent, err := newParentFromSecret(m.secret)
+		if err != nil {
+			return err
+		}
+		m.parent = parent
 	}
 
 	return m.parent.cleanupOrphanApplicationCredentials(ctx, m.secret, m.technicalName)

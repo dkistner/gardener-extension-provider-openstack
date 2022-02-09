@@ -16,8 +16,6 @@ package managedappcredential
 
 import (
 	"context"
-	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
@@ -28,17 +26,16 @@ import (
 )
 
 type parent struct {
-	id                      string
-	name                    string
-	secret                  string
-	isApplicationCredential bool
+	id     string
+	name   string
+	secret string
 
 	credentials    *openstack.Credentials
 	identityClient openstackclient.Identity
 }
 
-func newParent(parentCredentials *openstack.Credentials) (*parent, error) {
-	factory, err := openstackclient.NewOpenstackClientFromCredentials(parentCredentials)
+func newParentFromCredentials(credentials *openstack.Credentials) (*parent, error) {
+	factory, err := openstackclient.NewOpenstackClientFromCredentials(credentials)
 	if err != nil {
 		return nil, err
 	}
@@ -49,33 +46,18 @@ func newParent(parentCredentials *openstack.Credentials) (*parent, error) {
 	}
 
 	parent := &parent{
-		credentials:    parentCredentials,
+		credentials:    credentials,
 		identityClient: identityClient,
+		name:           credentials.Username,
+		secret:         credentials.Password,
 	}
 
-	if parentCredentials.ApplicationCredentialID != "" {
-		parent.isApplicationCredential = true
-		parent.id = parentCredentials.ApplicationCredentialID
-		parent.secret = parentCredentials.ApplicationCredentialSecret
-		return parent, nil
-	}
-
-	// TODO Does this also work if the parent is an application credential?
 	parentID, err := identityClient.LookupClientUserID()
 	if err != nil {
 		return nil, err
 	}
 
 	parent.id = parentID
-	parent.name = parentCredentials.Username
-	parent.secret = parentCredentials.Password
-
-	if parentCredentials.ApplicationCredentialName != "" && parentCredentials.Username != "" {
-		parent.isApplicationCredential = true
-		parent.name = parentCredentials.ApplicationCredentialName
-		parent.secret = parentCredentials.ApplicationCredentialSecret
-	}
-
 	return parent, nil
 }
 
@@ -94,40 +76,15 @@ func newParentFromSecret(secret *corev1.Secret) (*parent, error) {
 		parentCredential.AuthURL = string(data)
 	}
 
-	parentSecretRaw, ok := secret.Data[applicationCredentialSecretParentSecret]
-	if !ok {
-		return nil, fmt.Errorf("could not determine parent user secret of the managed application credential")
+	if data, ok := secret.Data[applicationCredentialSecretParentName]; ok {
+		parentCredential.Username = string(data)
 	}
 
-	isParentApplicationCredentialRaw, ok := secret.Data[applicationCredentialSecretParentIsAppCredential]
-	if !ok {
-		return nil, fmt.Errorf("could not determine parent user of the managed application credential is an application credential")
+	if data, ok := secret.Data[applicationCredentialSecretParentSecret]; ok {
+		parentCredential.Password = string(data)
 	}
 
-	isParentApplicationCredential, err := strconv.ParseBool(string(isParentApplicationCredentialRaw))
-	if err != nil {
-		return nil, err
-	}
-
-	if isParentApplicationCredential {
-		parentIDRaw, ok := secret.Data[applicationCredentialSecretParentID]
-		if !ok {
-			return nil, fmt.Errorf("could not determine parent user id of the managed application credential")
-		}
-
-		parentCredential.ApplicationCredentialID = string(parentIDRaw)
-		parentCredential.ApplicationCredentialSecret = string(parentSecretRaw)
-	} else {
-		parentNameRaw, ok := secret.Data[applicationCredentialSecretParentName]
-		if !ok {
-			return nil, fmt.Errorf("could not determine parent user name of the managed application credential")
-		}
-
-		parentCredential.Username = string(parentNameRaw)
-		parentCredential.Password = string(parentSecretRaw)
-	}
-
-	return newParent(parentCredential)
+	return newParentFromCredentials(parentCredential)
 }
 
 func (p *parent) cleanupOrphanApplicationCredentials(ctx context.Context, inUseAppCredentialSecret *corev1.Secret, technicalName string) error {
@@ -150,7 +107,6 @@ func (p *parent) cleanupOrphanApplicationCredentials(ctx context.Context, inUseA
 
 		// Skip the application credential which is currently in use.
 		if inUseAppCredentialID != nil && *inUseAppCredentialID == appCredential.ID {
-			fmt.Println("skip in use app credential", appCredential.ID, appCredential.Name)
 			continue
 		}
 
