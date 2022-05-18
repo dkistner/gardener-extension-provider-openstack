@@ -21,6 +21,7 @@ import (
 	api "github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack/helper"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/imagevector"
+	"github.com/gardener/gardener-extension-provider-openstack/pkg/internal/managedappcredential"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/client"
 
@@ -31,6 +32,7 @@ import (
 	"github.com/gardener/gardener/extensions/pkg/util"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	gardener "github.com/gardener/gardener/pkg/client/kubernetes"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -78,7 +80,17 @@ func (d *delegateFactory) WorkerDelegate(ctx context.Context, worker *extensions
 		return nil, err
 	}
 
-	openstackClient, err := client.NewOpenStackClientFromSecretRef(ctx, d.Client(), worker.Spec.SecretRef, &keyStoneURL)
+	secretRef := &worker.Spec.SecretRef
+	_, appCredentialSecretRef, err := managedappcredential.GetCredentials(ctx, d.Client(), worker.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	if appCredentialSecretRef != nil {
+		secretRef = appCredentialSecretRef
+	}
+
+	openstackClient, err := client.NewOpenStackClientFromSecretRef(ctx, d.Client(), *secretRef, &keyStoneURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create openstack client: %w", err)
 	}
@@ -92,6 +104,7 @@ func (d *delegateFactory) WorkerDelegate(ctx context.Context, worker *extensions
 		worker,
 		cluster,
 		openstackClient,
+		secretRef,
 	)
 }
 
@@ -109,7 +122,8 @@ type workerDelegate struct {
 	machineDeployments worker.MachineDeployments
 	machineImages      []api.MachineImage
 
-	openstackClient client.Factory
+	openstackClient    client.Factory
+	openstackSecretRef *corev1.SecretReference
 }
 
 // NewWorkerDelegate creates a new context for a worker reconciliation.
@@ -122,6 +136,7 @@ func NewWorkerDelegate(
 	worker *extensionsv1alpha1.Worker,
 	cluster *extensionscontroller.Cluster,
 	openstackClient client.Factory,
+	openstackSecretRef *corev1.SecretReference,
 ) (genericactuator.WorkerDelegate, error) {
 	config, err := helper.CloudProfileConfigFromCluster(cluster)
 	if err != nil {
@@ -138,5 +153,6 @@ func NewWorkerDelegate(
 		cluster:            cluster,
 		worker:             worker,
 		openstackClient:    openstackClient,
+		openstackSecretRef: openstackSecretRef,
 	}, nil
 }
