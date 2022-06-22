@@ -88,6 +88,8 @@ config:
   bastionConfig:
     imageRef: ""
     flavorRef: ""
+  featureGates:
+    ManagedApplicationCredential: false
 
 gardener:
   version: ""
