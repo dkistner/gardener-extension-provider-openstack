@@ -21,9 +21,9 @@ import (
 	api "github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack/helper"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/imagevector"
-	"github.com/gardener/gardener-extension-provider-openstack/pkg/internal/managedappcredential"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/client"
+	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/managedappcredential"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/controller/common"

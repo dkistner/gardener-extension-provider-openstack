@@ -21,11 +21,11 @@ import (
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack/helper"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/internal"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/internal/infrastructure"
-	"github.com/gardener/gardener-extension-provider-openstack/pkg/internal/managedappcredential"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
 	"github.com/go-logr/logr"
 
 	openstackclient "github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/client"
+	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/managedappcredential"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"

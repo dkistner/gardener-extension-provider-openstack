@@ -17,13 +17,12 @@ package managedappcredential
 import (
 	"context"
 
-	"github.com/gardener/gardener-extension-provider-openstack/pkg/internal/managedappcredential/internal"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
+	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/managedappcredential/internal"
 )
 
 // Delete deletes the managed application credentials of an Openstack Shoot cluster.
 func (m *Manager) Delete(ctx context.Context, credentials *openstack.Credentials) error {
-
 	desiredParentUser := internal.NewParentFromCredentials(credentials)
 	if err := desiredParentUser.Init(m.openstackClientFactory); err != nil {
 		return err

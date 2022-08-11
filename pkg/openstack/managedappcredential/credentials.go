@@ -17,8 +17,8 @@ package managedappcredential
 import (
 	"context"
 
-	"github.com/gardener/gardener-extension-provider-openstack/pkg/internal/managedappcredential/internal"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
+	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/managedappcredential/internal"
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"

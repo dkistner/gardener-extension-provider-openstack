@@ -21,9 +21,9 @@ import (
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack/helper"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/internal"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/internal/infrastructure"
-	"github.com/gardener/gardener-extension-provider-openstack/pkg/internal/managedappcredential"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
 	openstackclient "github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/client"
+	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/managedappcredential"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"

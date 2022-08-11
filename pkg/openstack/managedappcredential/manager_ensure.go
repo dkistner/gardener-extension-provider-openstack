@@ -18,9 +18,9 @@ import (
 	"context"
 
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/features"
-	"github.com/gardener/gardener-extension-provider-openstack/pkg/internal/managedappcredential/internal"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
 	openstackclient "github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/client"
+	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/managedappcredential/internal"
 
 	"github.com/gardener/gardener/pkg/utils"
 	"k8s.io/utils/clock"

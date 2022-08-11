@@ -22,8 +22,8 @@ import (
 
 	api "github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack/helper"
-	"github.com/gardener/gardener-extension-provider-openstack/pkg/internal/managedappcredential"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
+	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/managedappcredential"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/utils"
 
 	"github.com/Masterminds/semver"

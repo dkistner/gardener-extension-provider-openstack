@@ -15,9 +15,9 @@
 package internal_test
 
 import (
-	. "github.com/gardener/gardener-extension-provider-openstack/pkg/internal/managedappcredential/internal"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
 	mockopenstackclient "github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/client/mocks"
+	. "github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/managedappcredential/internal"
 
 	"github.com/golang/mock/gomock"
 	"github.com/gophercloud/gophercloud/openstack/identity/v3/tokens"
