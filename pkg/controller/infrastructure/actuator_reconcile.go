@@ -26,7 +26,6 @@ import (
 	openstackclient "github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/client"
 
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
-	extensionsinfracontroller "github.com/gardener/gardener/extensions/pkg/controller/infrastructure"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 	"github.com/go-logr/logr"
@@ -59,22 +58,18 @@ func (a *actuator) reconcile(ctx context.Context, log logr.Logger, infra *extens
 		a.Client(),
 		infra.Namespace,
 		infra.Name,
-		extensionsinfracontroller.FinalizerName,
 		log,
 	)
 
-	if err = appCredentialManager.Ensure(ctx, credentials); err != nil {
-		return err
-	}
-
-	appCredentialCredentials, appCredentialSecretRef, err := managedappcredential.GetCredentials(ctx, a.Client(), infra.Namespace)
+	appCredentialAuth, err := appCredentialManager.Ensure(ctx, credentials)
 	if err != nil {
 		return err
 	}
+
 	secretReference := &infra.Spec.SecretRef
-	if appCredentialCredentials != nil && appCredentialSecretRef != nil {
-		credentials = appCredentialCredentials
-		secretReference = appCredentialSecretRef
+	if appCredentialAuth != nil {
+		credentials = appCredentialAuth.Credentials
+		secretReference = appCredentialAuth.SecretRef
 	}
 
 	tf, err := internal.NewTerraformerWithAuth(log, a.RESTConfig(), infrastructure.TerraformerPurpose, infra, credentials, secretReference, a.disableProjectedTokenMount)

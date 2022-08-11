@@ -80,14 +80,14 @@ func (d *delegateFactory) WorkerDelegate(ctx context.Context, worker *extensions
 		return nil, err
 	}
 
-	secretRef := &worker.Spec.SecretRef
-	_, appCredentialSecretRef, err := managedappcredential.GetCredentials(ctx, d.Client(), worker.Namespace)
+	appCredentialAuth, err := managedappcredential.GetCredentials(ctx, d.Client(), worker.Namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	if appCredentialSecretRef != nil {
-		secretRef = appCredentialSecretRef
+	secretRef := &worker.Spec.SecretRef
+	if appCredentialAuth != nil {
+		secretRef = appCredentialAuth.SecretRef
 	}
 
 	openstackClient, err := client.NewOpenStackClientFromSecretRef(ctx, d.Client(), *secretRef, &keyStoneURL)

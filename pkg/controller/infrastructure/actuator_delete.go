@@ -27,18 +27,16 @@ import (
 
 	openstackclient "github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/client"
 	extensionscontroller "github.com/gardener/gardener/extensions/pkg/controller"
-	extensionsinfracontroller "github.com/gardener/gardener/extensions/pkg/controller/infrastructure"
 	"github.com/gardener/gardener/extensions/pkg/terraformer"
 	extensionsv1alpha1 "github.com/gardener/gardener/pkg/apis/extensions/v1alpha1"
 )
 
 func (a *actuator) Delete(ctx context.Context, log logr.Logger, infra *extensionsv1alpha1.Infrastructure, cluster *extensionscontroller.Cluster) error {
 	// need to known if application credentials are used
-	credentials, err := openstack.GetCredentials(ctx, a.Client(), infra.Spec.SecretRef, false)
+	userCredentials, err := openstack.GetCredentials(ctx, a.Client(), infra.Spec.SecretRef, false)
 	if err != nil {
 		return err
 	}
-	userCredentials := credentials
 
 	appCredentialManager := managedappcredential.NewManager(
 		openstackclient.FactoryFactoryFunc(openstackclient.NewOpenstackClientFromCredentials),
@@ -46,23 +44,19 @@ func (a *actuator) Delete(ctx context.Context, log logr.Logger, infra *extension
 		a.Client(),
 		infra.Namespace,
 		infra.Name,
-		extensionsinfracontroller.FinalizerName,
 		log,
 	)
 
-	if err = appCredentialManager.Ensure(ctx, userCredentials); err != nil {
-		return err
-	}
-
-	appCredentialCredentials, appCredentialSecretRef, err := managedappcredential.GetCredentials(ctx, a.Client(), infra.Namespace)
+	appCredentialAuth, err := appCredentialManager.Ensure(ctx, userCredentials)
 	if err != nil {
 		return err
 	}
 
 	secretRef := &infra.Spec.SecretRef
-	if appCredentialCredentials != nil && appCredentialSecretRef != nil {
-		credentials = appCredentialCredentials
-		secretRef = appCredentialSecretRef
+	credentials := userCredentials
+	if appCredentialAuth != nil {
+		credentials = appCredentialAuth.Credentials
+		secretRef = appCredentialAuth.SecretRef
 	}
 
 	tf, err := internal.NewTerraformer(log, a.RESTConfig(), infrastructure.TerraformerPurpose, infra, a.disableProjectedTokenMount)

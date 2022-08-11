@@ -275,18 +275,19 @@ func (vp *valuesProvider) GetConfigChartValues(
 	}
 
 	// Try to read the credentials of the managed application credential if exists.
-	credentials, _, err := managedappcredential.GetCredentials(ctx, vp.Client(), cp.Namespace)
+	appCredentialAuth, err := managedappcredential.GetCredentials(ctx, vp.Client(), cp.Namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	if credentials == nil {
-		// If no managed application credential exists take the regular user.
-		userCredentials, err := openstack.GetCredentials(ctx, vp.Client(), cp.Spec.SecretRef, false)
+	var credentials *openstack.Credentials
+	if appCredentialAuth != nil {
+		credentials = appCredentialAuth.Credentials
+	} else {
+		credentials, err = openstack.GetCredentials(ctx, vp.Client(), cp.Spec.SecretRef, false)
 		if err != nil {
 			return nil, fmt.Errorf("could not get service account from secret '%s/%s': %w", cp.Spec.SecretRef.Namespace, cp.Spec.SecretRef.Name, err)
 		}
-		credentials = userCredentials
 	}
 
 	return getConfigChartValues(cpConfig, infraStatus, cloudProfileConfig, cp, credentials, cluster)
