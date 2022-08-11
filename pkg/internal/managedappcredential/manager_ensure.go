@@ -16,151 +16,104 @@ package managedappcredential
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/features"
+	"github.com/gardener/gardener-extension-provider-openstack/pkg/internal/managedappcredential/internal"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
 	openstackclient "github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/client"
+
 	"github.com/gardener/gardener/pkg/utils"
+	"k8s.io/utils/clock"
 )
 
 // Ensure will ensure the managed application credential of an Openstack Shoot cluster.
-func (m *Manager) Ensure(ctx context.Context, credentials *openstack.Credentials) error {
-	newParentUser, err := m.newParentFromCredentials(credentials)
+func (m *Manager) Ensure(ctx context.Context, credentials *openstack.Credentials) (*AppCredentialAuth, error) {
+	// Create a storage backend for the managed application credential.
+	storage := internal.NewStorage(m.client, m.namespace)
+
+	// Read the in use app credential and its parent user if exists.
+	appCredential, oldParentUser, err := storage.ReadAppCredential(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	appCredential, err := readApplicationCredential(ctx, m.client, m.namespace)
-	if err != nil {
-		return err
+	desiredParentUser := internal.NewParentFromCredentials(credentials)
+	if err := desiredParentUser.Init(m.openstackClientFactory); err != nil {
+		return nil, err
 	}
 
 	var (
 		appCredentialExists bool
 		parentChanged       bool
 		oldParentUserUsable bool
-		oldParentUser       *parent
 	)
 
-	if appCredential != nil {
-		if err := m.updateParentPasswordIfRequired(ctx, appCredential, newParentUser); err != nil {
-			return err
-		}
-
-		if user, err := m.newParentFromSecret(appCredential.secret); err == nil && user != nil {
-			oldParentUser = user
-			oldParentUserUsable = true
-		}
-
-		if oldParentUserUsable {
-			if _, err := oldParentUser.identityClient.GetApplicationCredential(ctx, oldParentUser.id, appCredential.id); !openstackclient.IsNotFoundError(err) {
-				appCredentialExists = true
-			}
-
-			if oldParentUser.id != newParentUser.id {
-				parentChanged = true
-			}
-		}
-	}
-
-	if parentChanged {
-		// Try to clean up the application credentials owned by the old parent user.
-		// This might not work as the information about this user could be stale,
-		// because the user credentials are rotated, the user is not associated to
-		// Openstack project anymore or it is deleted.
-		if err := m.runGarbageCollection(ctx, oldParentUser, nil); err != nil {
-			m.logger.Error(err, "could not clean up application credential(s) as the owning user has changed and information about owning user might be stale")
-		}
-	}
-
-	// In case the application credential usage is disabled or the new parent user
-	// itself is an appplication, it is tried to clean up old application credentials before aborting.
-	if newParentUser.isApplicationCredential() || !features.ExtensionFeatureGate.Enabled(features.ManagedApplicationCredential) {
-		if oldParentUserUsable {
-			if err := m.runGarbageCollection(ctx, oldParentUser, nil); err != nil {
-				return err
-			}
-		}
-
-		if appCredential != nil {
-			return m.removeApplicationCredentialStore(ctx, appCredential.secret)
-		}
-
-		return nil
-	}
-
-	if !appCredentialExists || m.isExpired(appCredential) || parentChanged {
-		newAppCredential, err := m.createApplicationCredential(ctx, newParentUser)
-		if err != nil {
-			return err
-		}
-
-		if parentChanged {
-			// Try to delete the old application credential owned by the old user.
-			// This might not work as the information about this user could be stale,
-			// because the user credentials are rotated, the user is not associated to
-			// Openstack project anymore or it is deleted.
-			if err := m.runGarbageCollection(ctx, oldParentUser, nil); err != nil {
-				m.logger.Error(err, "could not delete application credential as the owning user has changed and information about owning user might be stale")
+	if appCredential != nil && oldParentUser != nil {
+		if oldParentUser.IsEqual(desiredParentUser) {
+			if !oldParentUser.HaveEqualSecrets(desiredParentUser) {
+				if err := storage.UpdateParentSecret(ctx, desiredParentUser); err != nil {
+					return nil, err
+				}
 			}
 		} else {
-			if err := m.runGarbageCollection(ctx, newParentUser, &newAppCredential.id); err != nil {
-				return err
+			parentChanged = true
+		}
+
+		if err := oldParentUser.Init(m.openstackClientFactory); err == nil {
+			oldParentUserUsable = true
+
+			if _, err := oldParentUser.GetClient().GetApplicationCredential(ctx, oldParentUser.GetID(), appCredential.ID); !openstackclient.IsNotFoundError(err) {
+				appCredentialExists = true
+			}
+		}
+	}
+
+	if oldParentUserUsable {
+		if parentChanged {
+			if err := internal.RunGarbageCollection(ctx, oldParentUser, nil, m.shootName); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := internal.RunGarbageCollection(ctx, oldParentUser, &appCredential.ID, m.shootName); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	// Abort in case the managed application credential feature is disabled or
+	// the new parent user itself is an appplication.
+	if desiredParentUser.IsApplicationCredential() || !features.ExtensionFeatureGate.Enabled(features.ManagedApplicationCredential) {
+		return nil, storage.DeleteAppCredential(ctx)
+	}
+
+	// Create a new application credential in case none exists, the old is expired
+	// or the parent Openstack user has changed.
+	if !appCredentialExists || appCredential.IsExpired(clock.RealClock{}, m.config) || parentChanged {
+		nameSuffix, err := utils.GenerateRandomString(8)
+		if err != nil {
+			return nil, err
+		}
+
+		newAppCredential, err := internal.NewApplicationCredential(ctx, desiredParentUser, m.shootName, nameSuffix, clock.RealClock{}, m.config)
+		if err != nil {
+			return nil, err
+		}
+
+		if parentChanged && oldParentUserUsable {
+			if err := internal.RunGarbageCollection(ctx, oldParentUser, &appCredential.ID, m.shootName); err != nil {
+				return nil, err
 			}
 		}
 
-		return m.storeApplicationCredential(ctx, newAppCredential, newParentUser)
+		appCredential = newAppCredential
 	}
 
-	if err := m.runGarbageCollection(ctx, newParentUser, &appCredential.id); err != nil {
-		return err
-	}
-
-	return m.storeApplicationCredential(ctx, appCredential, newParentUser)
-}
-
-func (m *Manager) isExpired(appCredential *applicationCredential) bool {
-	var (
-		now                     = time.Now().UTC()
-		creationTime            = appCredential.creationTime
-		lifetime                = creationTime.Add(m.config.Lifetime.Duration)
-		openstackExpirationTime = creationTime.Add(m.config.OpenstackExpirationPeriod.Duration)
-		renewThreshold          = openstackExpirationTime.Add(-m.config.RenewThreshold.Duration)
-	)
-
-	if now.After(renewThreshold) {
-		return true
-	}
-
-	if now.After(lifetime) {
-		return true
-	}
-
-	return false
-}
-
-func (m *Manager) createApplicationCredential(ctx context.Context, parent *parent) (*applicationCredential, error) {
-	randomNamePart, err := utils.GenerateRandomString(8)
-	if err != nil {
+	if err := internal.RunGarbageCollection(ctx, desiredParentUser, &appCredential.ID, m.shootName); err != nil {
 		return nil, err
 	}
 
-	var (
-		name                    = fmt.Sprintf("%s-%s", m.identifier, randomNamePart)
-		description             = fmt.Sprintf("Gardener managed application credential, shoot=%s", m.identifier)
-		openstackExpirationTime = time.Now().UTC().Add(m.config.OpenstackExpirationPeriod.Duration).Format(time.RFC3339)
-	)
-
-	appCredential, err := parent.identityClient.CreateApplicationCredential(ctx, parent.id, name, description, openstackExpirationTime)
-	if err != nil {
-		return nil, err
-	}
-
-	return &applicationCredential{
-		id:       appCredential.ID,
-		name:     appCredential.Name,
-		password: appCredential.Secret,
-	}, nil
+	return &AppCredentialAuth{
+		Credentials: appCredential.GetCredentials(desiredParentUser),
+		SecretRef:   getSecretRef(m.namespace),
+	}, storage.StoreAppCredential(ctx, appCredential, desiredParentUser)
 }

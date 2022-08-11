@@ -17,49 +17,48 @@ package managedappcredential
 import (
 	"context"
 
+	"github.com/gardener/gardener-extension-provider-openstack/pkg/internal/managedappcredential/internal"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
 )
 
 // Delete deletes the managed application credentials of an Openstack Shoot cluster.
 func (m *Manager) Delete(ctx context.Context, credentials *openstack.Credentials) error {
-	newParentUser, err := m.newParentFromCredentials(credentials)
+
+	desiredParentUser := internal.NewParentFromCredentials(credentials)
+	if err := desiredParentUser.Init(m.openstackClientFactory); err != nil {
+		return err
+	}
+
+	// Run garbage collection with the desired Openstack user.
+	if err := internal.RunGarbageCollection(ctx, desiredParentUser, nil, m.shootName); err != nil {
+		return err
+	}
+
+	// Create a storage backend for the managed application credential.
+	storage := internal.NewStorage(m.client, m.namespace)
+
+	_, curParentUser, err := storage.ReadAppCredential(ctx)
 	if err != nil {
 		return err
 	}
 
-	appCredential, err := readApplicationCredential(ctx, m.client, m.namespace)
-	if err != nil {
-		return err
+	if curParentUser == nil {
+		return storage.DeleteAppCredential(ctx)
 	}
 
-	if appCredential == nil {
-		return m.runGarbageCollection(ctx, newParentUser, nil)
-	}
-
-	var oldParentUser *parent
-	if user, err := m.newParentFromSecret(appCredential.secret); err == nil && user != nil {
-		oldParentUser = user
-	}
-
-	if oldParentUser != nil && (newParentUser.id != oldParentUser.id) {
-		// Try to clean up the application credentials owned by the old parent user.
-		// This might not work as the information about this user could be stale,
-		// because the user credentials are rotated, the user is not associated to
-		// Openstack project anymore or it is deleted.
-		if err := m.runGarbageCollection(ctx, oldParentUser, nil); err != nil {
-			m.logger.Error(err, "could not clean up application credential(s) as the owning user has changed and information about owning user might be stale")
+	if curParentUser.IsEqual(desiredParentUser) && !curParentUser.HaveEqualSecrets(desiredParentUser) {
+		if err := storage.UpdateParentSecret(ctx, desiredParentUser); err != nil {
+			return err
 		}
-
-		return m.removeApplicationCredentialStore(ctx, appCredential.secret)
 	}
 
-	if newParentUser.isApplicationCredential() {
-		return m.removeApplicationCredentialStore(ctx, appCredential.secret)
+	// Try to initialize the stored/current Openstack user.
+	// If possible then run also a garbage collection with those user.
+	if err := curParentUser.Init(m.openstackClientFactory); err == nil {
+		if err := internal.RunGarbageCollection(ctx, curParentUser, nil, m.shootName); err != nil {
+			return err
+		}
 	}
 
-	if err := m.runGarbageCollection(ctx, newParentUser, &appCredential.id); err != nil {
-		return err
-	}
-
-	return m.removeApplicationCredentialStore(ctx, appCredential.secret)
+	return storage.DeleteAppCredential(ctx)
 }

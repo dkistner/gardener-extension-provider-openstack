@@ -17,32 +17,43 @@ package managedappcredential
 import (
 	"context"
 
+	"github.com/gardener/gardener-extension-provider-openstack/pkg/internal/managedappcredential/internal"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
+
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// GetCredentials returns the credentials and the secret reference for the in-use
-// application credential. If no application credential exits nil will be returned.
-func GetCredentials(ctx context.Context, client client.Client, namespace string) (*openstack.Credentials, *corev1.SecretReference, error) {
-	appCredential, err := readApplicationCredential(ctx, client, namespace)
+// AppCredentialAuth contain auth information about a managed application credential.
+type AppCredentialAuth struct {
+	// Credentials contain the openstack credentials of the application credential.
+	Credentials *openstack.Credentials
+	// SecretRef contain the secret reference that hold the application credential auth information.
+	SecretRef *corev1.SecretReference
+}
+
+// GetCredentials return the credentials and the secret reference
+// for the in-use application credential.
+// If no application credential exits nil will be returned.
+func GetCredentials(ctx context.Context, client client.Client, namespace string) (*AppCredentialAuth, error) {
+	appCredential, parentUser, err := internal.NewStorage(client, namespace).ReadAppCredential(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	if appCredential == nil {
-		return nil, nil, nil
+	if appCredential == nil || parentUser == nil {
+		return nil, nil
 	}
 
-	return &openstack.Credentials{
-			ApplicationCredentialID:     readSecretKey(appCredential.secret, openstack.ApplicationCredentialID),
-			ApplicationCredentialName:   readSecretKey(appCredential.secret, openstack.ApplicationCredentialName),
-			ApplicationCredentialSecret: readSecretKey(appCredential.secret, openstack.ApplicationCredentialSecret),
-			DomainName:                  readSecretKey(appCredential.secret, openstack.DomainName),
-			TenantName:                  readSecretKey(appCredential.secret, openstack.TenantName),
-			AuthURL:                     readSecretKey(appCredential.secret, openstack.AuthURL),
-		}, &corev1.SecretReference{
-			Name:      applicationCredentialSecretName,
-			Namespace: namespace,
-		}, nil
+	return &AppCredentialAuth{
+		Credentials: appCredential.GetCredentials(parentUser),
+		SecretRef:   getSecretRef(namespace),
+	}, nil
+}
+
+func getSecretRef(namespace string) *corev1.SecretReference {
+	return &corev1.SecretReference{
+		Name:      internal.ApplicationCredentialSecretName,
+		Namespace: namespace,
+	}
 }

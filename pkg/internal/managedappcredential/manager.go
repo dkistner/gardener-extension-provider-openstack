@@ -15,54 +15,33 @@
 package managedappcredential
 
 import (
-	"context"
-	"fmt"
-	"strings"
-
 	controllerconfig "github.com/gardener/gardener-extension-provider-openstack/pkg/apis/config"
 	openstackclient "github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/client"
 
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// Manager is responsible to manage the lifecycle of the managed appplication
+// credentials of an Openstack Shoot cluster.
+type Manager struct {
+	client                 client.Client
+	config                 *controllerconfig.ApplicationCredentialConfig
+	logger                 logr.Logger
+	namespace              string
+	openstackClientFactory openstackclient.FactoryFactory
+	shootName              string
+}
+
 // NewManager returns a new manager to manage the lifecycle of
 // the managed appplication credentials of an Openstack Shoot cluster.
-func NewManager(openstackClientFactory openstackclient.FactoryFactory, config *controllerconfig.ApplicationCredentialConfig, client client.Client, namespace, identifier, finalizerName string, logger logr.Logger) *Manager {
+func NewManager(openstackClientFactory openstackclient.FactoryFactory, config *controllerconfig.ApplicationCredentialConfig, client client.Client, namespace, shootName string, logger logr.Logger) *Manager {
 	return &Manager{
 		client:                 client,
 		config:                 config,
-		finalizerName:          finalizerName,
-		identifier:             identifier,
 		logger:                 logger,
 		namespace:              namespace,
 		openstackClientFactory: openstackClientFactory,
+		shootName:              shootName,
 	}
-}
-
-func (m *Manager) runGarbageCollection(ctx context.Context, parent *parent, managedApplicationCredentialID *string) error {
-	appCredentialList, err := parent.identityClient.ListApplicationCredentials(ctx, parent.id)
-	if err != nil {
-		return err
-	}
-
-	var errorList []error
-	for _, ac := range appCredentialList {
-		// Ignore application credentials which name is not matching to the managers identifier.
-		if !strings.HasPrefix(ac.Name, m.identifier) {
-			continue
-		}
-
-		// Skip the is-use application credential.
-		if managedApplicationCredentialID != nil && ac.ID == *managedApplicationCredentialID {
-			continue
-		}
-
-		if err := parent.identityClient.DeleteApplicationCredential(ctx, parent.id, ac.ID); err != nil {
-			errorList = append(errorList, fmt.Errorf("could not delete application credential %q owned by user %q: %w", ac.ID, parent.id, err))
-		}
-	}
-
-	return errors.Flatten(errors.NewAggregate(errorList))
 }
