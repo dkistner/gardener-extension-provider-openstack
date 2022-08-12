@@ -44,7 +44,6 @@ func (a *actuator) Delete(ctx context.Context, log logr.Logger, infra *extension
 		a.Client(),
 		infra.Namespace,
 		infra.Name,
-		log,
 	)
 
 	appCredentialAuth, err := appCredentialManager.Ensure(ctx, userCredentials)

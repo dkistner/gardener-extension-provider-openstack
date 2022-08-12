@@ -18,7 +18,6 @@ import (
 	controllerconfig "github.com/gardener/gardener-extension-provider-openstack/pkg/apis/config"
 	openstackclient "github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/client"
 
-	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -27,7 +26,6 @@ import (
 type Manager struct {
 	client                 client.Client
 	config                 *controllerconfig.ApplicationCredentialConfig
-	logger                 logr.Logger
 	namespace              string
 	openstackClientFactory openstackclient.FactoryFactory
 	shootName              string
@@ -35,11 +33,10 @@ type Manager struct {
 
 // NewManager returns a new manager to manage the lifecycle of
 // the managed appplication credentials of an Openstack Shoot cluster.
-func NewManager(openstackClientFactory openstackclient.FactoryFactory, config *controllerconfig.ApplicationCredentialConfig, client client.Client, namespace, shootName string, logger logr.Logger) *Manager {
+func NewManager(openstackClientFactory openstackclient.FactoryFactory, config *controllerconfig.ApplicationCredentialConfig, client client.Client, namespace, shootName string) *Manager {
 	return &Manager{
 		client:                 client,
 		config:                 config,
-		logger:                 logger,
 		namespace:              namespace,
 		openstackClientFactory: openstackClientFactory,
 		shootName:              shootName,
