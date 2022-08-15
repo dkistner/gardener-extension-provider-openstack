@@ -15,7 +15,6 @@
 package infrastructure
 
 import (
-	controllerconfig "github.com/gardener/gardener-extension-provider-openstack/pkg/apis/config"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
 	openstackclient "github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/client"
 
@@ -39,15 +38,13 @@ type AddOptions struct {
 	// DisableProjectedTokenMount specifies whether the projected token mount shall be disabled for the terraformer.
 	// Used for testing only.
 	DisableProjectedTokenMount bool
-	// AppCredentialConfig specifies the configuration for application credential usage.
-	AppCredentialConfig controllerconfig.ApplicationCredentialConfig
 }
 
 // AddToManagerWithOptions adds a controller with the given AddOptions to the given manager.
 // The opts.Reconciler is being set with a newly instantiated actuator.
 func AddToManagerWithOptions(mgr manager.Manager, options AddOptions) error {
 	return infrastructure.Add(mgr, infrastructure.AddArgs{
-		Actuator:          NewActuator(options.DisableProjectedTokenMount, &options.AppCredentialConfig),
+		Actuator:          NewActuator(options.DisableProjectedTokenMount),
 		ConfigValidator:   NewConfigValidator(openstackclient.FactoryFactoryFunc(openstackclient.NewOpenstackClientFromCredentials), log.Log),
 		ControllerOptions: options.Controller,
 		Predicates:        infrastructure.DefaultPredicates(options.IgnoreOperationAnnotation),

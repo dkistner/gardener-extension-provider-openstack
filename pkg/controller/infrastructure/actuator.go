@@ -17,7 +17,6 @@ package infrastructure
 import (
 	"context"
 
-	controllerconfig "github.com/gardener/gardener-extension-provider-openstack/pkg/apis/config"
 	api "github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack"
 	infrainternal "github.com/gardener/gardener-extension-provider-openstack/pkg/internal/infrastructure"
 
@@ -32,14 +31,12 @@ import (
 type actuator struct {
 	common.RESTConfigContext
 	disableProjectedTokenMount bool
-	appCredentialConfig        *controllerconfig.ApplicationCredentialConfig
 }
 
 // NewActuator creates a new Actuator that updates the status of the handled Infrastructure resources.
-func NewActuator(disableProjectedTokenMount bool, appCredentialConfig *controllerconfig.ApplicationCredentialConfig) infrastructure.Actuator {
+func NewActuator(disableProjectedTokenMount bool) infrastructure.Actuator {
 	return &actuator{
 		disableProjectedTokenMount: disableProjectedTokenMount,
-		appCredentialConfig:        appCredentialConfig,
 	}
 }
 

@@ -47,7 +47,6 @@ var (
 	c       client.Client
 
 	credentials      *openstack.Credentials
-	config           *controllerconfig.ApplicationCredentialConfig
 	testUserRotation bool
 )
 
@@ -109,12 +108,16 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("Managed Application Credential tests", func() {
+	var config *controllerconfig.ApplicationCredentialConfig
+
 	BeforeEach(func() {
 		config = &controllerconfig.ApplicationCredentialConfig{
 			Lifetime:                  &metav1.Duration{Duration: time.Hour},
 			OpenstackExpirationPeriod: &metav1.Duration{Duration: 4 * time.Hour},
 			RenewThreshold:            &metav1.Duration{Duration: time.Hour},
 		}
+
+		managedappcredential.Config = *config
 		features.ExtensionFeatureGate.Set(fmt.Sprintf("%s=true", features.ManagedApplicationCredential))
 	})
 
@@ -130,7 +133,6 @@ var _ = Describe("Managed Application Credential tests", func() {
 
 		manager := managedappcredential.NewManager(
 			openstackclient.FactoryFactoryFunc(openstackclient.NewOpenstackClientFromCredentials),
-			config,
 			c,
 			namespace,
 			shootName,
@@ -153,10 +155,10 @@ var _ = Describe("Managed Application Credential tests", func() {
 		)
 
 		config.Lifetime = &metav1.Duration{Duration: time.Second}
+		managedappcredential.Config = *config
 
 		manager := managedappcredential.NewManager(
 			openstackclient.FactoryFactoryFunc(openstackclient.NewOpenstackClientFromCredentials),
-			config,
 			c,
 			namespace,
 			shootName,
@@ -194,7 +196,6 @@ var _ = Describe("Managed Application Credential tests", func() {
 
 		manager := managedappcredential.NewManager(
 			openstackclient.FactoryFactoryFunc(openstackclient.NewOpenstackClientFromCredentials),
-			config,
 			c,
 			namespace,
 			shootName,

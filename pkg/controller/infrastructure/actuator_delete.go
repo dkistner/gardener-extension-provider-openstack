@@ -40,7 +40,6 @@ func (a *actuator) Delete(ctx context.Context, log logr.Logger, infra *extension
 
 	appCredentialManager := managedappcredential.NewManager(
 		openstackclient.FactoryFactoryFunc(openstackclient.NewOpenstackClientFromCredentials),
-		a.appCredentialConfig,
 		a.Client(),
 		infra.Namespace,
 		infra.Name,

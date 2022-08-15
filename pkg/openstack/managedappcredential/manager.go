@@ -21,11 +21,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// Config is the config for the managed application credentials.
+var Config = controllerconfig.ApplicationCredentialConfig{}
+
 // Manager is responsible to manage the lifecycle of the managed appplication
 // credentials of an Openstack Shoot cluster.
 type Manager struct {
 	client                 client.Client
-	config                 *controllerconfig.ApplicationCredentialConfig
 	namespace              string
 	openstackClientFactory openstackclient.FactoryFactory
 	shootName              string
@@ -33,10 +35,9 @@ type Manager struct {
 
 // NewManager returns a new manager to manage the lifecycle of
 // the managed appplication credentials of an Openstack Shoot cluster.
-func NewManager(openstackClientFactory openstackclient.FactoryFactory, config *controllerconfig.ApplicationCredentialConfig, client client.Client, namespace, shootName string) *Manager {
+func NewManager(openstackClientFactory openstackclient.FactoryFactory, client client.Client, namespace, shootName string) *Manager {
 	return &Manager{
 		client:                 client,
-		config:                 config,
 		namespace:              namespace,
 		openstackClientFactory: openstackClientFactory,
 		shootName:              shootName,

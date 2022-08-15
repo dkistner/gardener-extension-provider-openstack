@@ -88,13 +88,13 @@ func (m *Manager) Ensure(ctx context.Context, credentials *openstack.Credentials
 
 	// Create a new application credential in case none exists, the old is expired
 	// or the parent Openstack user has changed.
-	if !appCredentialExists || appCredential.IsExpired(clock.RealClock{}, m.config) || parentChanged {
+	if !appCredentialExists || appCredential.IsExpired(clock.RealClock{}, &Config) || parentChanged {
 		nameSuffix, err := utils.GenerateRandomString(8)
 		if err != nil {
 			return nil, err
 		}
 
-		newAppCredential, err := internal.NewApplicationCredential(ctx, desiredParentUser, m.shootName, nameSuffix, clock.RealClock{}, m.config)
+		newAppCredential, err := internal.NewApplicationCredential(ctx, desiredParentUser, m.shootName, nameSuffix, clock.RealClock{}, &Config)
 		if err != nil {
 			return nil, err
 		}
