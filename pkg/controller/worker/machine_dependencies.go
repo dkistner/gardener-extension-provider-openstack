@@ -25,7 +25,9 @@ import (
 
 	api "github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack"
 	"github.com/gardener/gardener-extension-provider-openstack/pkg/apis/openstack/helper"
+	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
 	osclient "github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/client"
+	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/managedappcredential"
 )
 
 func (w *workerDelegate) DeployMachineDependencies(ctx context.Context) error {
@@ -192,7 +194,24 @@ func (w *workerDelegate) PostReconcileHook(_ context.Context) error {
 }
 
 // PreDeleteHook implements genericactuator.WorkerDelegate.
-func (w *workerDelegate) PreDeleteHook(_ context.Context) error {
+func (w *workerDelegate) PreDeleteHook(ctx context.Context) error {
+	credentials, err := openstack.GetCredentials(ctx, w.Client(), w.worker.Spec.SecretRef, false)
+	if err != nil {
+		return err
+	}
+
+	appCredentialManager := managedappcredential.NewManager(
+		osclient.FactoryFactoryFunc(osclient.NewOpenstackClientFromCredentials),
+		w.Client(),
+		w.worker.Namespace,
+		w.worker.Name,
+	)
+
+	_, err = appCredentialManager.Ensure(ctx, credentials)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
