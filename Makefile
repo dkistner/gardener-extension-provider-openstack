@@ -41,6 +41,8 @@ FLOATING_POOL_NAME := .kube-secrets/openstack/floating_pool_name.secret
 PASSWORD           := .kube-secrets/openstack/password.secret
 TENANT_NAME        := .kube-secrets/openstack/tenant_name.secret
 USER_NAME          := .kube-secrets/openstack/user_name.secret
+USER_NAME_ROTATION := .kube-secrets/openstack/user_name_rotation.secret
+PASSWORD_ROTATION  := .kube-secrets/openstack/password_rotation.secret
 
 #########################################
 # Tools                                 #
@@ -178,3 +180,16 @@ integration-test-bastion:
 		--tenant-name='$(shell cat $(TENANT_NAME))' \
 		--user-name='$(shell cat $(USER_NAME))' \
 		--region='$(shell cat $(REGION))'
+
+.PHONY: integration-test-managedappcredential
+integration-test-managedappcredential:
+	@go test -timeout=0 -mod=vendor ./test/integration/managedappcredential \
+		--v -ginkgo.v -ginkgo.progress \
+		--kubeconfig=${KUBECONFIG} \
+		--auth-url='$(shell cat $(AUTH_URL))' \
+		--domain-name='$(shell cat $(DOMAIN_NAME))' \
+		--password='$(shell cat $(PASSWORD))' \
+		--tenant-name='$(shell cat $(TENANT_NAME))' \
+		--user-name='$(shell cat $(USER_NAME))' \
+		--user-name-rotation='$(shell [[ -f $(USER_NAME_ROTATION) ]] && cat $(USER_NAME_ROTATION))' \
+		--password-rotation='$(shell [[ -f $(PASSWORD_ROTATION) ]] && cat $(PASSWORD_ROTATION))' \

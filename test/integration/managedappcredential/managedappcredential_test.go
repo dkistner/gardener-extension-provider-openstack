@@ -15,100 +15,273 @@
 package managedappcredential
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"time"
 
-	"github.com/gardener/gardener-extension-provider-openstack/pkg/internal/managedappcredential"
+	controllerconfig "github.com/gardener/gardener-extension-provider-openstack/pkg/apis/config"
+	"github.com/gardener/gardener-extension-provider-openstack/pkg/features"
+	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack"
+	openstackclient "github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/client"
+	"github.com/gardener/gardener-extension-provider-openstack/pkg/openstack/managedappcredential"
 
+	"github.com/gardener/gardener/pkg/logger"
+	"github.com/gardener/gardener/test/framework"
+	"github.com/gophercloud/gophercloud/openstack/identity/v3/applicationcredentials"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/sirupsen/logrus"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	// . "github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-func validateRotationUserFlags() bool {
-	countRotationFlags := 0
-
-	if len(*passwordRotation) == 0 {
-		countRotationFlags++
-	}
-	if len(*usernnameRotation) == 0 {
-		countRotationFlags++
-	}
-
-	if countRotationFlags == 2 {
-		return true
-	}
-
-	return false
-}
-
-func validateMandatoryFlags() {
-	panicNotSet(authURL, "auth-url")
-	panicNotSet(domainName, "domainName")
-	panicNotSet(tenantName, "tenant-name")
-	panicNotSet(region, "region")
-	panicNotSet(userName, "user-name")
-	panicNotSet(password, "password")
-}
-
-func panicNotSet(flagVal *string, flagName string) {
-	if flagVal == nil || len(*flagVal) == 0 {
-		panic(fmt.Sprintf("--%s is not specified", flagName))
-	}
-}
-
 var (
-	authURL    = flag.String("auth-url", "", "Authorization URL for openstack")
-	domainName = flag.String("domain-name", "", "Domain name for openstack")
-	password   = flag.String("password", "", "Password of openstack user")
-	region     = flag.String("region", "", "Openstack Region to use")
-	tenantName = flag.String("tenant-name", "", "Name of openstack tenant to use")
-	userName   = flag.String("user-name", "", "Username of openstack user")
+	ctx     context.Context
+	testEnv *envtest.Environment
+	c       client.Client
 
-	passwordRotation  = flag.String("alt-password", "", "Password of openstack user for rotation")
-	usernnameRotation = flag.String("alt-user-name", "", "Username of openstack user for rotation")
-
+	credentials      *openstack.Credentials
+	config           *controllerconfig.ApplicationCredentialConfig
 	testUserRotation bool
-
-	manager managedappcredential.Manager
 )
 
 var _ = BeforeSuite(func() {
 	flag.Parse()
 	validateMandatoryFlags()
-
 	testUserRotation = validateRotationUserFlags()
 
+	ctx = context.Background()
+	features.RegisterExtensionFeatureGate()
+
 	// enable manager logs
-	logf.SetLogger(zap.New(zap.UseDevMode(true), zap.WriteTo(GinkgoWriter)))
-	log := logrus.New()
-	log.SetOutput(GinkgoWriter)
-	logger := logrus.NewEntry(log)
-	_ = logger
+	logf.SetLogger(logger.MustNewZapLogger(logger.DebugLevel, logger.FormatJSON, zap.WriteTo(GinkgoWriter)))
 
-	// TODO: Clean up.
+	mgrContext, mgrCancel := context.WithCancel(ctx)
+	DeferCleanup(func() {
+		defer func() {
+			By("stopping manager")
+			mgrCancel()
+		}()
 
-	manager managedappcredential.NewManager()
+		By("running cleanup actions")
+		framework.RunCleanupActions()
+
+		By("stopping test environment")
+		Expect(testEnv.Stop()).To(Succeed())
+	})
+
+	By("starting test environment")
+	testEnv = &envtest.Environment{
+		UseExistingCluster: pointer.BoolPtr(true),
+	}
+
+	cfg, err := testEnv.Start()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(cfg).NotTo(BeNil())
+
+	By("setup manager")
+	mgr, err := manager.New(cfg, manager.Options{
+		MetricsBindAddress: "0",
+	})
+	Expect(err).NotTo(HaveOccurred())
+
+	By("start manager")
+	go func() {
+		Expect(mgr.Start(mgrContext)).NotTo(HaveOccurred())
+	}()
+
+	c = mgr.GetClient()
+	Expect(c).NotTo(BeNil())
+
+	credentials = &openstack.Credentials{
+		AuthURL:    *mandatoryFlags[authURLKey],
+		DomainName: *mandatoryFlags[domainNameKey],
+		TenantName: *mandatoryFlags[tenantNameKey],
+		Username:   *mandatoryFlags[usernameKey],
+		Password:   *mandatoryFlags[passwordKey],
+	}
 })
 
 var _ = Describe("Managed Application Credential tests", func() {
-	var ()
-
 	BeforeEach(func() {
-
+		config = &controllerconfig.ApplicationCredentialConfig{
+			Lifetime:                  &metav1.Duration{Duration: time.Hour},
+			OpenstackExpirationPeriod: &metav1.Duration{Duration: 4 * time.Hour},
+			RenewThreshold:            &metav1.Duration{Duration: time.Hour},
+		}
+		features.ExtensionFeatureGate.Set(fmt.Sprintf("%s=true", features.ManagedApplicationCredential))
 	})
 
-	Context("parent user changed", func() {
-		It("aa", func() {
-			if !testUserRotation {
-				Skip("skip as no alternative user is provided")
-			}
-
-			// TODO()
-		})
+	AfterEach(func() {
+		framework.RunCleanupActions()
 	})
 
+	It("should ensure and delete a managed application credential", func() {
+		var (
+			namespace = prepareTestNamespace(ctx, c)
+			shootName = generateRandomName(shootNamePrefix)
+		)
+
+		manager := managedappcredential.NewManager(
+			openstackclient.FactoryFactoryFunc(openstackclient.NewOpenstackClientFromCredentials),
+			config,
+			c,
+			namespace,
+			shootName,
+		)
+
+		By("ensure managed application credential")
+		_, err := manager.Ensure(ctx, credentials)
+		Expect(err).NotTo(HaveOccurred())
+
+		_ = verifyApplicationCredential(ctx, c, namespace, credentials)
+
+		By("delete managed application credential")
+		Expect(manager.Delete(ctx, credentials)).NotTo(HaveOccurred())
+	})
+
+	It("should ensure and delete a managed application credential with lifetime expiration", func() {
+		var (
+			namespace = prepareTestNamespace(ctx, c)
+			shootName = generateRandomName(shootNamePrefix)
+		)
+
+		config.Lifetime = &metav1.Duration{Duration: time.Second}
+
+		manager := managedappcredential.NewManager(
+			openstackclient.FactoryFactoryFunc(openstackclient.NewOpenstackClientFromCredentials),
+			config,
+			c,
+			namespace,
+			shootName,
+		)
+
+		By("ensure managed application credential")
+		_, err := manager.Ensure(ctx, credentials)
+		Expect(err).NotTo(HaveOccurred())
+
+		appCredentialID := verifyApplicationCredential(ctx, c, namespace, credentials)
+
+		By("wait 10s to expire the application credential lifetime")
+		time.Sleep(10 * time.Second)
+
+		By("ensure managed application credential after lifetime expired")
+		_, err = manager.Ensure(ctx, credentials)
+		Expect(err).NotTo(HaveOccurred())
+
+		appCredentialID2 := verifyApplicationCredential(ctx, c, namespace, credentials)
+		Expect(appCredentialID).NotTo(Equal(appCredentialID2))
+
+		By("delete managed application credential")
+		Expect(manager.Delete(ctx, credentials)).NotTo(HaveOccurred())
+	})
+
+	It("should ensure and delete a managed application credential with parent change", func() {
+		if !testUserRotation {
+			Skip("skip as no user for rotation is provided")
+		}
+
+		var (
+			namespace = prepareTestNamespace(ctx, c)
+			shootName = generateRandomName(shootNamePrefix)
+		)
+
+		manager := managedappcredential.NewManager(
+			openstackclient.FactoryFactoryFunc(openstackclient.NewOpenstackClientFromCredentials),
+			config,
+			c,
+			namespace,
+			shootName,
+		)
+
+		By("ensure managed application credential")
+		_, err := manager.Ensure(ctx, credentials)
+		Expect(err).NotTo(HaveOccurred())
+
+		appCredentialID := verifyApplicationCredential(ctx, c, namespace, credentials)
+
+		credentialsNewParent := &openstack.Credentials{
+			AuthURL:    credentials.AuthURL,
+			DomainName: credentials.DomainName,
+			TenantName: credentials.TenantName,
+			Username:   *optionalFlags[usernameRotationKey],
+			Password:   *optionalFlags[passwordRotationKey],
+		}
+
+		By("ensure managed application credential with changed parent user")
+		_, err = manager.Ensure(ctx, credentialsNewParent)
+		Expect(err).NotTo(HaveOccurred())
+
+		appCredentialID2 := verifyApplicationCredential(ctx, c, namespace, credentialsNewParent)
+		Expect(appCredentialID).NotTo(Equal(appCredentialID2))
+
+		By("delete managed application credential")
+		Expect(manager.Delete(ctx, credentialsNewParent)).NotTo(HaveOccurred())
+	})
 })
+
+func verifyApplicationCredential(ctx context.Context, c client.Client, namespace string, credentials *openstack.Credentials) string {
+	By("verify application credential secret")
+	var appCredentialSecret = &corev1.Secret{}
+	err := c.Get(ctx, client.ObjectKey{Name: "cloudprovider-application-credential", Namespace: namespace}, appCredentialSecret)
+	Expect(err).NotTo(HaveOccurred())
+
+	var (
+		parentUserID            = string(appCredentialSecret.Data["parentID"])
+		applicationCredentialID = string(appCredentialSecret.Data["applicationCredentialID"])
+	)
+	Expect(parentUserID).NotTo(BeEmpty())
+	Expect(applicationCredentialID).NotTo(BeEmpty())
+
+	framework.AddCleanupAction(func() {
+		By("ensure orphan test application credential secret is deleted")
+		patch := client.MergeFrom(appCredentialSecret.DeepCopy())
+		appCredentialSecret.ObjectMeta.Finalizers = []string{}
+		Expect(client.IgnoreNotFound(c.Patch(ctx, appCredentialSecret, patch))).To(Succeed())
+		Expect(client.IgnoreNotFound(c.Delete(ctx, appCredentialSecret))).To(Succeed())
+	})
+
+	By("prepare openstack identity/application credential client")
+	identitiyClient := newOpenstackClient(credentials)
+
+	By("verify application credential exists on infrastructure")
+	appCredential, err := applicationcredentials.Get(identitiyClient, parentUserID, applicationCredentialID).Extract()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(appCredential.ID).To(Equal(applicationCredentialID))
+
+	framework.AddCleanupAction(func() {
+		By("ensure orphan test application credential is deleted")
+		Expect(openstackclient.IgnoreNotFoundError(
+			applicationcredentials.Delete(identitiyClient, parentUserID, applicationCredentialID).ExtractErr(),
+		)).To(Succeed())
+	})
+
+	return applicationCredentialID
+}
+
+func prepareTestNamespace(ctx context.Context, c client.Client) string {
+	var (
+		namespaceName = generateRandomName(namespacePrefix)
+		namespace     = &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespaceName,
+			},
+		}
+	)
+
+	framework.AddCleanupAction(func() {
+		By("delete test namespace")
+		Expect(client.IgnoreNotFound(c.Delete(ctx, namespace))).To(Succeed())
+	})
+
+	By("create namespace for test execution")
+	Expect(c.Create(ctx, namespace)).NotTo(HaveOccurred())
+
+	return namespaceName
+}
